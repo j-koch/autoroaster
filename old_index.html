@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoRoaster - Calibrated coffee digital twins</title>
+    <style>
+        /* Global styles and variables */
+        :root {
+            --primary-color: #8B4513;
+            --secondary-color: #D2B48C;
+            --accent-color: #3E2723;
+            --background-color: #FFF8F0;
+            --text-color: #2C1810;
+            --font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        body {
+            font-family: var(--font-family);
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header styles */
+        header {
+            padding: 2rem 0;
+            border-bottom: 1px solid var(--secondary-color);
+        }
+        
+        .logo {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            letter-spacing: -1px;
+        }
+        
+        .logo span {
+            color: var(--accent-color);
+        }
+        
+        .tagline {
+            font-size: 1.2rem;
+            font-weight: 300;
+            margin-top: 0.5rem;
+        }
+        
+        /* Hero section */
+        .hero {
+            padding: 5rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            color: var(--accent-color);
+        }
+        
+        .hero p {
+            font-size: 1.3rem;
+            max-width: 800px;
+            margin: 0 auto 2rem;
+        }
+        
+        /* Features section */
+        .features {
+            padding: 4rem 0;
+            background-color: white;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .feature {
+            padding: 1.5rem;
+            border-radius: 5px;
+            background-color: var(--background-color);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .feature h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+            font-size: 1.4rem;
+        }
+        
+        .feature-icon {
+            font-size: 1.4rem;
+            margin-right: 0.5rem;
+            color: var(--primary-color);
+            display: inline-block;
+        }
+        
+        /* Technology section */
+        .technology {
+            padding: 4rem 0;
+        }
+        
+        .technology h2 {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--accent-color);
+        }
+        
+        .tech-diagram {
+            width: 100%;
+            max-width: 800px;
+            height: 300px;
+            margin: 0 auto;
+            background-color: white;
+            border: 1px solid var(--secondary-color);
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-style: italic;
+            color: var(--accent-color);
+        }
+        
+        /* CTA section */
+        .cta {
+            background-color: var(--accent-color);
+            color: white;
+            text-align: center;
+            padding: 4rem 0;
+        }
+        
+        .cta h2 {
+            margin-bottom: 1.5rem;
+        }
+        
+        .button {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        
+        .button:hover {
+            background-color: #6d3610;
+        }
+        
+        /* Footer */
+        footer {
+            padding: 2rem 0;
+            text-align: center;
+            background-color: var(--text-color);
+            color: white;
+        }
+        
+        .section-title {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--accent-color);
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.2rem;
+            }
+            
+            .hero p {
+                font-size: 1.1rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">Auto<span>Roaster</span></div>
+            <div class="tagline">Calibrated Coffee Roasting with Digital Twins</div>
+        </div>
+    </header>
+    
+    <section class="hero">
+        <div class="container">
+            <h1>Revolutionizing Coffee Roasting with Advanced Machine Learning</h1>
+            <p>AutoRoaster combines physics-based modeling, neural networks, and digital twin technology to create the perfect coffee roast, every time.</p>
+        </div>
+    </section>
+    
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">Our Technology</h2>
+            <div class="features-grid">
+                <div class="feature">
+                    <h3><span class="feature-icon">🔄</span> Digital Twins</h3>
+                    <p>Create surrogate models of your roasting equipment to simulate, optimize, and predict outcomes before roasting a single bean.</p>
+                </div>
+                <div class="feature">
+                    <h3><span class="feature-icon">🧠</span> Surrogate Modeling</h3>
+                    <p>Our advanced machine learning models combine physical laws with data-driven approaches to create fast, accurate predictions that capture complex roasting dynamics.</p>
+                </div>
+                <div class="feature">
+                    <h3><span class="feature-icon">⚙️</span> Roast Transferability</h3>
+                    <p>Transfer roast profiles seamlessly between different machines while maintaining flavor consistency and quality.</p>
+                </div>
+                <div class="feature">
+                    <h3><span class="feature-icon">📊</span> Coffee Calibration</h3>
+                    <p>Precise calibration systems adapt to different beans, environmental conditions, and equipment variations automatically.</p>
+                </div>
+                <div class="feature">
+                    <h3><span class="feature-icon">🌡️</span> Temperature Prediction</h3>
+                    <p>Advanced heat transfer models predict bean and environment temperatures with unprecedented accuracy.</p>
+                </div>
+                <div class="feature">
+                    <h3><span class="feature-icon">🔍</span> Inverse Design</h3>
+                    <p>Specify the roast profile you want, and our system will design the optimal control path to achieve it.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+
+    
+    <section class="cta">
+        <div class="container">
+            <h2>Transform Your Coffee Roasting Process</h2>
+            <p>Join the scientific revolution in coffee roasting and achieve consistency, quality, and innovation.</p>
+        </div>
+    </section>
+    
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AutoRoaster. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -560,6 +560,27 @@ class RoasterSimulator {
      * Update Plotly charts
      */
     updateCharts() {
+        // Calculate xlimit: maximum of 10 minutes or (last time stamp) + 1 minute
+        let xlimit = 10; // Default minimum of 10 minutes
+        if (this.timeData.length > 0) {
+            const lastTimeStamp = this.timeData[this.timeData.length - 1];
+            xlimit = Math.max(10, lastTimeStamp + 1);
+        }
+        
+        // Calculate ylimit for temperature chart: maximum of 200°C and (max temperature + 25°C)
+        let ylimit = 200; // Default minimum of 200°C
+        if (this.timeData.length > 0) {
+            // Find maximum temperature across all temperature data arrays
+            const allTemps = [
+                ...this.temperatureData.bean,
+                ...this.temperatureData.environment,
+                ...this.temperatureData.roaster,
+                ...this.temperatureData.air
+            ];
+            const maxTemp = Math.max(...allTemps);
+            ylimit = Math.max(200, maxTemp + 25);
+        }
+        
         // Update temperature chart
         const tempUpdate = {
             x: [this.timeData, this.timeData, this.timeData, this.timeData],
@@ -572,6 +593,13 @@ class RoasterSimulator {
         };
         Plotly.restyle('temperature-chart', tempUpdate);
         
+        // Update temperature chart axis ranges
+        const tempLayoutUpdate = {
+            'xaxis.range': [0, xlimit],
+            'yaxis.range': [0, ylimit]
+        };
+        Plotly.relayout('temperature-chart', tempLayoutUpdate);
+        
         // Update control chart
         const controlUpdate = {
             x: [this.timeData, this.timeData, this.timeData],
@@ -582,6 +610,12 @@ class RoasterSimulator {
             ]
         };
         Plotly.restyle('control-chart', controlUpdate);
+        
+        // Update control chart x-axis range
+        const controlLayoutUpdate = {
+            'xaxis.range': [0, xlimit]
+        };
+        Plotly.relayout('control-chart', controlLayoutUpdate);
     }
 }
 

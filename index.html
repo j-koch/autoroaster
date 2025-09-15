@@ -15,44 +15,65 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             background-color: #f5f5f5;
         }
         
         .container {
-            max-width: 1400px;
-            margin: 0 auto;
+            display: flex;
+            height: 100vh;
             background-color: white;
+        }
+        
+        /* Left sidebar for controls and monitors */
+        .sidebar {
+            width: 350px;
+            background-color: #f9f9f9;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            border-right: 1px solid #ddd;
+        }
+        
+        /* Main content area for charts */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
         }
         
         h1 {
             text-align: center;
             color: #8B4513;
             margin-bottom: 30px;
+            margin-top: 0;
         }
         
         .controls-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
             margin-bottom: 30px;
             padding: 20px;
-            background-color: #f9f9f9;
+            background-color: white;
             border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .controls-section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #8B4513;
+            font-size: 18px;
         }
         
         .control-group {
             display: flex;
             flex-direction: column;
             gap: 10px;
+            margin-bottom: 15px;
         }
         
         .control-group label {
             font-weight: bold;
             color: #333;
+            font-size: 14px;
         }
         
         .slider-container {
@@ -94,20 +115,21 @@
             text-align: center;
             font-weight: bold;
             color: #8B4513;
+            font-size: 14px;
         }
         
         .button-group {
             display: flex;
+            flex-direction: column;
             gap: 10px;
-            justify-content: center;
             margin-bottom: 20px;
         }
         
         button {
-            padding: 12px 24px;
+            padding: 10px 16px;
             border: none;
             border-radius: 6px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -150,38 +172,57 @@
         }
         
         .status-section {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
             margin-bottom: 30px;
             padding: 20px;
-            background-color: #e9ecef;
+            background-color: white;
             border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .status-section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #8B4513;
+            font-size: 18px;
         }
         
         .status-item {
-            text-align: center;
-            padding: 15px;
-            background-color: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
         }
         
         .status-label {
             font-size: 14px;
             color: #666;
-            margin-bottom: 5px;
+            font-weight: bold;
         }
         
         .status-value {
-            font-size: 24px;
+            font-size: 16px;
             font-weight: bold;
             color: #8B4513;
         }
         
-        .chart-container {
+        /* Temperature chart - larger */
+        .chart-container.temperature {
             width: 100%;
             height: 500px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        /* Control chart - shorter */
+        .chart-container.control {
+            width: 100%;
+            height: 250px;
             margin-bottom: 20px;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -233,85 +274,93 @@
 </head>
 <body>
     <div class="container">
-        <h1>☕ Coffee Roaster Digital Twin</h1>
-        
-        <!-- Loading/Error Messages -->
-        <div id="loading" class="loading">Loading ONNX models...</div>
-        <div id="error" class="error" style="display: none;"></div>
-        
-        <!-- Roast Phase Indicator -->
-        <div id="roast-phase" class="roast-phase phase-preheat" style="display: none;">
-            PREHEATING
-        </div>
-        
-        <!-- Control Section -->
-        <div class="controls-section">
-            <div class="control-group">
-                <label for="heater-slider">Heater Power</label>
-                <div class="slider-container">
-                    <input type="range" id="heater-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
-                    <span id="heater-value" class="value-display">50%</span>
+        <!-- Left Sidebar -->
+        <div class="sidebar">
+            <h1>Coffee Roaster Digital Twin</h1>
+            
+            <!-- Loading/Error Messages -->
+            <div id="loading" class="loading">Loading ONNX models...</div>
+            <div id="error" class="error" style="display: none;"></div>
+            
+            <!-- Roast Phase Indicator -->
+            <div id="roast-phase" class="roast-phase phase-preheat" style="display: none;">
+                PREHEATING
+            </div>
+            
+            <!-- Control Section -->
+            <div class="controls-section">
+                <h2>Controls</h2>
+                <div class="control-group">
+                    <label for="heater-slider">Heater Power</label>
+                    <div class="slider-container">
+                        <input type="range" id="heater-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
+                        <span id="heater-value" class="value-display">50%</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="fan-slider">Fan Speed</label>
+                    <div class="slider-container">
+                        <input type="range" id="fan-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
+                        <span id="fan-value" class="value-display">50%</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="mass-slider">Bean Mass (g)</label>
+                    <div class="slider-container">
+                        <input type="range" id="mass-slider" class="slider" min="50" max="200" step="5" value="100">
+                        <span id="mass-value" class="value-display">100g</span>
+                    </div>
                 </div>
             </div>
             
-            <div class="control-group">
-                <label for="fan-slider">Fan Speed</label>
-                <div class="slider-container">
-                    <input type="range" id="fan-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
-                    <span id="fan-value" class="value-display">50%</span>
-                </div>
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button id="preheat-btn" class="btn-secondary">Start Preheat</button>
+                <button id="charge-btn" class="btn-success" disabled>Charge Beans</button>
+                <button id="drop-btn" class="btn-danger" disabled>Drop Beans</button>
+                <button id="reset-btn" class="btn-primary">Reset</button>
             </div>
             
-            <div class="control-group">
-                <label for="mass-slider">Bean Mass (g)</label>
-                <div class="slider-container">
-                    <input type="range" id="mass-slider" class="slider" min="50" max="200" step="5" value="100">
-                    <span id="mass-value" class="value-display">100g</span>
+            <!-- Status Display -->
+            <div class="status-section">
+                <h2>Status</h2>
+                <div class="status-item">
+                    <div class="status-label">Bean Temperature</div>
+                    <div id="bean-temp" class="status-value">25°C</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Environment Temperature</div>
+                    <div id="env-temp" class="status-value">25°C</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Roaster Temperature</div>
+                    <div id="roaster-temp" class="status-value">25°C</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Air Temperature</div>
+                    <div id="air-temp" class="status-value">25°C</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Roast Time</div>
+                    <div id="roast-time" class="status-value">00:00</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Rate of Rise</div>
+                    <div id="rate-of-rise" class="status-value">0°C/min</div>
                 </div>
             </div>
         </div>
         
-        <!-- Action Buttons -->
-        <div class="button-group">
-            <button id="preheat-btn" class="btn-secondary">Start Preheat</button>
-            <button id="charge-btn" class="btn-success" disabled>Charge Beans</button>
-            <button id="drop-btn" class="btn-danger" disabled>Drop Beans</button>
-            <button id="reset-btn" class="btn-primary">Reset</button>
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Temperature Chart -->
+            <div id="temperature-chart" class="chart-container temperature"></div>
+            
+            <!-- Control Chart -->
+            <div id="control-chart" class="chart-container control"></div>
         </div>
-        
-        <!-- Status Display -->
-        <div class="status-section">
-            <div class="status-item">
-                <div class="status-label">Bean Temperature</div>
-                <div id="bean-temp" class="status-value">25°C</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Environment Temperature</div>
-                <div id="env-temp" class="status-value">25°C</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Roaster Temperature</div>
-                <div id="roaster-temp" class="status-value">25°C</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Air Temperature</div>
-                <div id="air-temp" class="status-value">25°C</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Roast Time</div>
-                <div id="roast-time" class="status-value">00:00</div>
-            </div>
-            <div class="status-item">
-                <div class="status-label">Rate of Rise</div>
-                <div id="rate-of-rise" class="status-value">0°C/min</div>
-            </div>
-        </div>
-        
-        <!-- Temperature Chart -->
-        <div id="temperature-chart" class="chart-container"></div>
-        
-        <!-- Control Chart -->
-        <div id="control-chart" class="chart-container"></div>
     </div>
     
     <script src="roaster-simulator.js"></script>

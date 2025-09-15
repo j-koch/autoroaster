@@ -1,0 +1,88 @@
+bean_training:
+  bean_hidden_dims:
+  - 16
+  - 16
+  bean_variety: Sakaro
+  original_model_dir: models/kaleido/batched_sysid_20250914_141533
+export_info:
+  exported_components:
+  - state_estimator
+  - observer
+  - roast_stepper
+  - bean_model
+  onnx_opset_version: 11
+  pytorch_version: !!python/object/new:torch.torch_version.TorchVersion
+  - 2.2.2
+input_specifications:
+  bean_model:
+    description: '[T_b] - bean temperature'
+    input_dim: 1
+  estimator:
+    description: observables + inputs + mass_indicator
+    input_dim: 15
+  observer:
+    description: '[T_r, T_b, T_air, T_bm]'
+    input_dim: 4
+  roast_stepper:
+    current_controls_dim: 8
+    current_state_dim: 4
+    description: 'current_state: [T_r, T_b, T_air, T_bm], controls: roaster-specific,
+      dt: time_step'
+    dt_dim: 1
+model_info:
+  estimator_hidden_dim: 64
+  n_latents: 5
+  observer_hidden_dim: 8
+  roaster_hidden_dims:
+  - 16
+  - 16
+  roaster_type: drum
+state_structure:
+  inputs_dim: 5
+  observables_dim: 9
+  state_keys:
+    dt:
+    - 15
+    inputs:
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    mass:
+    - 14
+    observables:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    observables_t-0.1:
+    - 6
+    - 7
+    - 8
+    observables_t0:
+    - 0
+    - 1
+    - 2
+  state_names:
+  - bean_temp
+  - environment_temp
+  - temp_difference
+  - bean_temp_t-0.1
+  - environment_temp_t-0.1
+  - temp_difference_t-0.1
+  - bean_temp_t-0.1
+  - environment_temp_t-0.1
+  - temp_difference_t-0.1
+  - heater
+  - fan
+  - drum
+  - ambient_temp
+  - humidity
+  - mass
+  - dt

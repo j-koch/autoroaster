@@ -176,8 +176,8 @@ class RoasterSimulator {
     initializePreheatState() {
         const roomTemp = 25.0; // °C
         const preheatTemp = this.preheatTemp; // 180°C
-        const roasterTemp = preheatTemp + 30.0; // 210°C
-        const airTemp = preheatTemp - 50.0; // 210°C
+        const roasterTemp = preheatTemp + 50.0; // 210°C
+        const airTemp = preheatTemp; // 210°C
         
         // Normalize temperatures using scaling factor
         const tempScale = this.scalingFactors.temperatures.bean;
@@ -472,8 +472,8 @@ class RoasterSimulator {
             // Display initial preheat values
             document.getElementById('bean-temp').textContent = this.preheatTemp + '°C';
             document.getElementById('env-temp').textContent = (this.preheatTemp + 30) + '°C';
-            document.getElementById('roaster-temp').textContent = (this.preheatTemp + 30) + '°C';
-            document.getElementById('air-temp').textContent = (this.preheatTemp - 50) + '°C';
+            document.getElementById('roaster-temp').textContent = (this.preheatTemp + 50) + '°C';
+            document.getElementById('air-temp').textContent = (this.preheatTemp) + '°C';
             document.getElementById('roast-time').textContent = '00:00';
             document.getElementById('rate-of-rise').textContent = '0°C/min';
             return;

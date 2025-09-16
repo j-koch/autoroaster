@@ -46,6 +46,8 @@ class RoasterSimulator {
             fan: [],
             drum: []
         };
+        // Rate of rise data storage (°C/min)
+        this.rateOfRiseData = [];
         this.startTime = null;
         
         // Scaling factors from dataset.py - ArtisanRoastDataset.SCALING_FACTORS
@@ -194,13 +196,26 @@ class RoasterSimulator {
      * Initialize Plotly charts
      */
     initializeCharts() {
-        // Temperature chart
+        // Temperature chart with dual y-axis (temperature + rate of rise)
         const tempLayout = {
-            title: 'Temperature Profile',
+            title: 'Temperature Profile & Rate of Rise',
             xaxis: { title: 'Time (minutes)' },
-            yaxis: { title: 'Temperature (°C)' },
+            yaxis: { 
+                title: 'Temperature (°C)',
+                side: 'left'
+            },
+            yaxis2: {
+                title: 'Rate of Rise (°C/min)',
+                side: 'right',
+                overlaying: 'y',
+                showgrid: false,
+                zeroline: true,
+                zerolinecolor: '#666',
+                zerolinewidth: 1,
+                range: [0, null]  // Set minimum to 0, let maximum auto-scale
+            },
             showlegend: true,
-            margin: { t: 50, r: 50, b: 50, l: 50 }
+            margin: { t: 50, r: 80, b: 50, l: 50 }  // Increased right margin for second y-axis
         };
         
         const tempData = [
@@ -208,25 +223,36 @@ class RoasterSimulator {
                 x: [],
                 y: [],
                 name: 'Bean Temperature (Measured)',
-                line: { color: '#8B4513', width: 3 }
+                line: { color: '#8B4513', width: 3 },
+                yaxis: 'y'  // Use left y-axis
             },
             {
                 x: [],
                 y: [],
                 name: 'Bean Core Temperature',
-                line: { color: '#FF6B35', width: 2 }
+                line: { color: '#FF6B35', width: 2 },
+                yaxis: 'y'  // Use left y-axis
             },
             {
                 x: [],
                 y: [],
                 name: 'Roaster Temperature',
-                line: { color: '#4ECDC4', width: 2 }
+                line: { color: '#4ECDC4', width: 2 },
+                yaxis: 'y'  // Use left y-axis
             },
             {
                 x: [],
                 y: [],
                 name: 'Air Temperature',
-                line: { color: '#45B7D1', width: 2 }
+                line: { color: '#45B7D1', width: 2 },
+                yaxis: 'y'  // Use left y-axis
+            },
+            {
+                x: [],
+                y: [],
+                name: 'Rate of Rise',
+                line: { color: '#FF1493', width: 2, dash: 'dot' },
+                yaxis: 'y2'  // Use right y-axis
             }
         ];
         
@@ -318,6 +344,7 @@ class RoasterSimulator {
         this.timeData = [];
         this.temperatureData = { bean: [], environment: [], roaster: [], air: [] };
         this.controlData = { heater: [], fan: [], drum: [] };
+        this.rateOfRiseData = [];  // Clear rate of rise data
         this.startTime = Date.now();
         
         // Reset state to preheat conditions
@@ -375,6 +402,7 @@ class RoasterSimulator {
         this.timeData = [];
         this.temperatureData = { bean: [], environment: [], roaster: [], air: [] };
         this.controlData = { heater: [], fan: [], drum: [] };
+        this.rateOfRiseData = [];  // Clear rate of rise data
         
         // Update UI
         this.updatePhaseDisplay();
@@ -433,10 +461,25 @@ class RoasterSimulator {
             
             // Store data for plotting
             this.timeData.push(currentTimeMinutes);
-            this.temperatureData.bean.push(this.denormalizeTemperature(this.currentState[3])); // T_bm (Bean Temperature Measured)
+            const currentBeanTemp = this.denormalizeTemperature(this.currentState[3]); // T_bm (Bean Temperature Measured)
+            this.temperatureData.bean.push(currentBeanTemp);
             this.temperatureData.environment.push(this.denormalizeTemperature(this.currentState[1])); // T_b (Bean Core Temperature)
             this.temperatureData.roaster.push(this.denormalizeTemperature(this.currentState[0])); // T_r (Roaster Temperature)
             this.temperatureData.air.push(this.denormalizeTemperature(this.currentState[2])); // T_air (Air Temperature)
+            
+            // Calculate rate of rise (°C/min) for plotting
+            // For the first data point, rate of rise is 0
+            if (this.timeData.length === 1) {
+                this.rateOfRiseData.push(0);
+            } else {
+                // Calculate rate of rise based on the last two data points
+                const prevTime = this.timeData[this.timeData.length - 2];
+                const prevBeanTemp = this.temperatureData.bean[this.temperatureData.bean.length - 2];
+                const timeDiff = currentTimeMinutes - prevTime;
+                const tempDiff = currentBeanTemp - prevBeanTemp;
+                const rateOfRise = timeDiff > 0 ? tempDiff / timeDiff : 0;
+                this.rateOfRiseData.push(rateOfRise);
+            }
             
             this.controlData.heater.push(this.controls.heater);
             this.controlData.fan.push(this.controls.fan);
@@ -532,22 +575,31 @@ class RoasterSimulator {
             ylimit = Math.max(200, maxTemp + 25);
         }
         
-        // Update temperature chart
+        // Update temperature chart (including rate of rise on second y-axis)
         const tempUpdate = {
-            x: [this.timeData, this.timeData, this.timeData, this.timeData],
+            x: [this.timeData, this.timeData, this.timeData, this.timeData, this.timeData],
             y: [
                 this.temperatureData.bean,
                 this.temperatureData.environment,
                 this.temperatureData.roaster,
-                this.temperatureData.air
+                this.temperatureData.air,
+                this.rateOfRiseData  // Rate of rise data for the 5th trace (second y-axis)
             ]
         };
         Plotly.restyle('temperature-chart', tempUpdate);
         
+        // Calculate y2limit for rate of rise: maximum of 10°C/min and (max rate of rise + 2°C/min)
+        let y2limit = 10; // Default minimum of 10°C/min
+        if (this.rateOfRiseData.length > 0) {
+            const maxRateOfRise = Math.max(...this.rateOfRiseData);
+            y2limit = Math.max(10, maxRateOfRise + 2);
+        }
+        
         // Update temperature chart axis ranges
         const tempLayoutUpdate = {
             'xaxis.range': [0, xlimit],
-            'yaxis.range': [0, ylimit]
+            'yaxis.range': [0, ylimit],
+            'yaxis2.range': [0, y2limit]  // Ensure second y-axis starts at 0
         };
         Plotly.relayout('temperature-chart', tempLayoutUpdate);
         

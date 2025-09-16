@@ -21,16 +21,17 @@ class RoasterSimulator {
         this.simulationInterval = null;
         this.timestep = 1.5; // Fixed timestep in seconds
         
-        // Roasting phases
+        // Roasting phases (simplified - no preheating)
         this.phases = {
             IDLE: 'idle',
-            PREHEATING: 'preheating', 
-            READY: 'ready',
             CHARGING: 'charging',
             ROASTING: 'roasting',
             DROPPED: 'dropped'
         };
         this.currentPhase = this.phases.IDLE;
+        
+        // Preheat temperature setting (°C)
+        this.preheatTemp = 180.0;
         
         // Simulation data storage
         this.timeData = [];
@@ -46,9 +47,6 @@ class RoasterSimulator {
             drum: []
         };
         this.startTime = null;
-        
-        // Current system state [T_r, T_b, T_air, T_bm] (normalized)
-        this.currentState = new Float32Array([0.25, 0.25, 0.25, 0.25]); // Start at 25°C normalized
         
         // Scaling factors from dataset.py - ArtisanRoastDataset.SCALING_FACTORS
         this.scalingFactors = {
@@ -67,6 +65,10 @@ class RoasterSimulator {
             mass: 100.0,            // Typical batch size ~100g
             time: 60.0              // Convert seconds to minutes
         };
+        
+        // Current system state [T_r, T_b, T_air, T_bm] (normalized)
+        // Initialize with preheat conditions instead of room temperature
+        this.currentState = this.initializePreheatState();
         
         // Fixed parameters
         this.fixedParams = {
@@ -118,8 +120,7 @@ class RoasterSimulator {
             massValue.textContent = this.controls.mass + 'g';
         });
         
-        // Action buttons
-        document.getElementById('preheat-btn').addEventListener('click', () => this.startPreheat());
+        // Action buttons (removed preheat button)
         document.getElementById('charge-btn').addEventListener('click', () => this.chargeBeans());
         document.getElementById('drop-btn').addEventListener('click', () => this.dropBeans());
         document.getElementById('reset-btn').addEventListener('click', () => this.reset());
@@ -166,6 +167,30 @@ class RoasterSimulator {
     }
     
     /**
+     * Initialize state with preheat conditions
+     * T_bm = preheat temp (180°C)
+     * T_air = T_bm = 180°C  
+     * T_roaster = T_bm + 30°C = 210°C
+     * T_b = room temperature = 25°C
+     */
+    initializePreheatState() {
+        const roomTemp = 25.0; // °C
+        const preheatTemp = this.preheatTemp; // 180°C
+        const roasterTemp = preheatTemp + 30.0; // 210°C
+        const airTemp = preheatTemp - 50.0; // 210°C
+        
+        // Normalize temperatures using scaling factor
+        const tempScale = this.scalingFactors.temperatures.bean;
+        
+        return new Float32Array([
+            roasterTemp / tempScale,  // T_r (roaster temperature)
+            roomTemp / tempScale,     // T_b (bean core temperature - starts at room temp)
+            airTemp / tempScale,  // T_air (air temperature)
+            preheatTemp / tempScale   // T_bm (bean measurement temperature)
+        ]);
+    }
+
+    /**
      * Initialize Plotly charts
      */
     initializeCharts() {
@@ -182,13 +207,13 @@ class RoasterSimulator {
             {
                 x: [],
                 y: [],
-                name: 'Bean Temperature',
+                name: 'Bean Temperature (Measured)',
                 line: { color: '#8B4513', width: 3 }
             },
             {
                 x: [],
                 y: [],
-                name: 'Environment Temperature',
+                name: 'Bean Core Temperature',
                 line: { color: '#FF6B35', width: 2 }
             },
             {
@@ -241,50 +266,33 @@ class RoasterSimulator {
     }
     
     /**
-     * Update the phase display
+     * Update the phase display (simplified without preheat)
      */
     updatePhaseDisplay() {
         const phaseDiv = document.getElementById('roast-phase');
-        const preheatBtn = document.getElementById('preheat-btn');
         const chargeBtn = document.getElementById('charge-btn');
         const dropBtn = document.getElementById('drop-btn');
         
         // Reset button states
-        preheatBtn.disabled = false;
         chargeBtn.disabled = true;
         dropBtn.disabled = true;
         
         switch (this.currentPhase) {
             case this.phases.IDLE:
-                phaseDiv.textContent = 'IDLE - Ready to Start';
-                phaseDiv.className = 'roast-phase phase-preheat';
-                preheatBtn.textContent = 'Start Preheat';
-                break;
-                
-            case this.phases.PREHEATING:
-                phaseDiv.textContent = 'PREHEATING - Warming Up Roaster';
-                phaseDiv.className = 'roast-phase phase-preheat';
-                preheatBtn.disabled = true;
-                break;
-                
-            case this.phases.READY:
-                phaseDiv.textContent = 'READY - Roaster Preheated';
+                phaseDiv.textContent = `IDLE - Roaster Preheated to ${this.preheatTemp}°C`;
                 phaseDiv.className = 'roast-phase phase-charging';
-                preheatBtn.disabled = true;
                 chargeBtn.disabled = false;
                 break;
                 
             case this.phases.CHARGING:
                 phaseDiv.textContent = 'CHARGING - Adding Beans';
                 phaseDiv.className = 'roast-phase phase-charging';
-                preheatBtn.disabled = true;
                 chargeBtn.disabled = true;
                 break;
                 
             case this.phases.ROASTING:
                 phaseDiv.textContent = 'ROASTING - Beans in Progress';
                 phaseDiv.className = 'roast-phase phase-roasting';
-                preheatBtn.disabled = true;
                 chargeBtn.disabled = true;
                 dropBtn.disabled = false;
                 break;
@@ -292,7 +300,6 @@ class RoasterSimulator {
             case this.phases.DROPPED:
                 phaseDiv.textContent = 'DROPPED - Roast Complete';
                 phaseDiv.className = 'roast-phase phase-dropped';
-                preheatBtn.disabled = true;
                 chargeBtn.disabled = true;
                 dropBtn.disabled = true;
                 break;
@@ -300,11 +307,11 @@ class RoasterSimulator {
     }
     
     /**
-     * Start the preheating process
+     * Charge beans into the roaster and start simulation
      */
-    startPreheat() {
-        console.log('Starting preheat...');
-        this.currentPhase = this.phases.PREHEATING;
+    chargeBeans() {
+        console.log('Charging beans...');
+        this.currentPhase = this.phases.CHARGING;
         this.updatePhaseDisplay();
         
         // Initialize simulation data
@@ -313,21 +320,12 @@ class RoasterSimulator {
         this.controlData = { heater: [], fan: [], drum: [] };
         this.startTime = Date.now();
         
-        // Set initial state to room temperature (normalized)
-        this.currentState = new Float32Array([0.25, 0.25, 0.25, 0.25]); // 25°C normalized
+        // Reset state to preheat conditions
+        this.currentState = this.initializePreheatState();
         
         // Start simulation loop
         this.isRunning = true;
         this.simulationInterval = setInterval(() => this.simulationStep(), this.timestep * 1000);
-    }
-    
-    /**
-     * Charge beans into the roaster
-     */
-    chargeBeans() {
-        console.log('Charging beans...');
-        this.currentPhase = this.phases.CHARGING;
-        this.updatePhaseDisplay();
         
         // Simulate charging process (brief transition)
         setTimeout(() => {
@@ -369,8 +367,8 @@ class RoasterSimulator {
         
         // Reset state
         this.currentPhase = this.phases.IDLE;
-        this.currentState = new Float32Array([0.25, 0.25, 0.25, 0.25]);
-        this.previousBeanTemp = 25.0;
+        this.currentState = this.initializePreheatState();
+        this.previousBeanTemp = this.preheatTemp; // Start from preheat temperature
         this.previousTime = 0;
         
         // Clear data
@@ -385,7 +383,7 @@ class RoasterSimulator {
     }
     
     /**
-     * Perform one simulation step
+     * Perform one simulation step (simplified without StateEstimator)
      */
     async simulationStep() {
         if (!this.isRunning) return;
@@ -399,55 +397,8 @@ class RoasterSimulator {
             const beansPresent = this.currentPhase === this.phases.ROASTING;
             const massValue = beansPresent ? this.controls.mass : 0.0;
             
-            // Check if we should transition from preheating to ready
-            if (this.currentPhase === this.phases.PREHEATING) {
-                const avgTemp = this.denormalizeTemperature((this.currentState[0] + this.currentState[2]) / 2);
-                if (avgTemp > 150) { // When average of roaster and air temp > 150°C
-                    this.currentPhase = this.phases.READY;
-                    this.updatePhaseDisplay();
-                }
-            }
-            
-            // Prepare inputs for state estimator
-            // Based on metadata: observables (9) + inputs (5) + mass_indicator (1) = 15
-            const estimatorInput = new Float32Array(15);
-            
-            // Observables (9): [bean_temp, env_temp, temp_diff, delayed versions...]
-            // For simplicity, we'll use current state for all delayed observables
-            const beanTemp = this.currentState[3]; // T_bm (bean measurement)
-            const envTemp = this.currentState[0]; // Use roaster temp as environment temp approximation
-            const tempDiff = beanTemp - envTemp;
-            
-            // Fill observables (current + delayed copies)
-            estimatorInput[0] = beanTemp;     // bean_temp
-            estimatorInput[1] = envTemp;      // environment_temp  
-            estimatorInput[2] = tempDiff;     // temp_difference
-            estimatorInput[3] = beanTemp;     // bean_temp_t-0.1 (delayed)
-            estimatorInput[4] = envTemp;      // environment_temp_t-0.1 (delayed)
-            estimatorInput[5] = tempDiff;     // temp_difference_t-0.1 (delayed)
-            estimatorInput[6] = beanTemp;     // bean_temp_t-0.1 (duplicate)
-            estimatorInput[7] = envTemp;      // environment_temp_t-0.1 (duplicate)
-            estimatorInput[8] = tempDiff;     // temp_difference_t-0.1 (duplicate)
-            
-            // Inputs (5): [heater, fan, drum, ambient_temp, humidity] (normalized)
-            // Controls are already in [0,1] range, but ambient temp and humidity need scaling
-            estimatorInput[9] = this.controls.heater;  // Already 0-1
-            estimatorInput[10] = this.controls.fan;    // Already 0-1
-            estimatorInput[11] = this.fixedParams.drum; // Already 0-1 (0.6)
-            estimatorInput[12] = this.fixedParams.ambient / this.scalingFactors.controls.ambient;
-            estimatorInput[13] = this.fixedParams.humidity / this.scalingFactors.controls.humidity;
-            
-            // Mass indicator (1): boolean converted to float
-            estimatorInput[14] = beansPresent ? 1.0 : 0.0;
-            
-            // Run state estimator
-            const estimatorResult = await this.sessions.stateEstimator.run({
-                estimator_input: new ort.Tensor('float32', estimatorInput, [1, 15])
-            });
-            const latentStates = estimatorResult.latent_states.data; // [T_r, T_b, T_air, C_b, latent]
-            
             // Get bean thermal capacity from bean model if beans are present
-            let beanCapacity = latentStates[3]; // Default from estimator
+            let beanCapacity = 0.5; // Default thermal capacity (normalized)
             if (beansPresent && this.sessions.beanModel) {
                 const beanModelResult = await this.sessions.beanModel.run({
                     bean_temperature: new ort.Tensor('float32', [this.currentState[1]], [1, 1])
@@ -456,7 +407,7 @@ class RoasterSimulator {
             }
             
             // Prepare controls for roast stepper
-            // Based on DrumRoaster.forward() in models.py: [heat, fan, drum, T_amb, humidity, mass, C_b, latent]
+            // Based on DrumRoaster.forward() in models.py: [heater, fan, drum, T_amb, humidity, mass, C_b, latent]
             const stepperControls = new Float32Array(8);
             stepperControls[0] = this.controls.heater;  // Already 0-1
             stepperControls[1] = this.controls.fan;     // Already 0-1
@@ -464,8 +415,8 @@ class RoasterSimulator {
             stepperControls[3] = this.fixedParams.ambient / this.scalingFactors.controls.ambient;  // Scale temperature
             stepperControls[4] = this.fixedParams.humidity / this.scalingFactors.controls.humidity; // Scale humidity
             stepperControls[5] = massValue / this.scalingFactors.mass;  // Scale mass
-            stepperControls[6] = beanCapacity;  // Already normalized from model
-            stepperControls[7] = latentStates[4]; // Additional latent
+            stepperControls[6] = beanCapacity;  // Bean thermal capacity
+            stepperControls[7] = 0.0; // Additional latent (set to 0 for simplicity)
             
             // Time step (normalized)
             const dt = new Float32Array([this.timestep / this.scalingFactors.time]);
@@ -482,10 +433,10 @@ class RoasterSimulator {
             
             // Store data for plotting
             this.timeData.push(currentTimeMinutes);
-            this.temperatureData.bean.push(this.denormalizeTemperature(this.currentState[3])); // T_bm
-            this.temperatureData.environment.push(this.denormalizeTemperature(this.currentState[0])); // T_r
-            this.temperatureData.roaster.push(this.denormalizeTemperature(this.currentState[0])); // T_r
-            this.temperatureData.air.push(this.denormalizeTemperature(this.currentState[2])); // T_air
+            this.temperatureData.bean.push(this.denormalizeTemperature(this.currentState[3])); // T_bm (Bean Temperature Measured)
+            this.temperatureData.environment.push(this.denormalizeTemperature(this.currentState[1])); // T_b (Bean Core Temperature)
+            this.temperatureData.roaster.push(this.denormalizeTemperature(this.currentState[0])); // T_r (Roaster Temperature)
+            this.temperatureData.air.push(this.denormalizeTemperature(this.currentState[2])); // T_air (Air Temperature)
             
             this.controlData.heater.push(this.controls.heater);
             this.controlData.fan.push(this.controls.fan);
@@ -518,11 +469,11 @@ class RoasterSimulator {
      */
     updateStatusDisplay() {
         if (this.timeData.length === 0) {
-            // Reset to initial values
-            document.getElementById('bean-temp').textContent = '25°C';
-            document.getElementById('env-temp').textContent = '25°C';
-            document.getElementById('roaster-temp').textContent = '25°C';
-            document.getElementById('air-temp').textContent = '25°C';
+            // Display initial preheat values
+            document.getElementById('bean-temp').textContent = this.preheatTemp + '°C';
+            document.getElementById('env-temp').textContent = (this.preheatTemp + 30) + '°C';
+            document.getElementById('roaster-temp').textContent = (this.preheatTemp + 30) + '°C';
+            document.getElementById('air-temp').textContent = (this.preheatTemp - 50) + '°C';
             document.getElementById('roast-time').textContent = '00:00';
             document.getElementById('rate-of-rise').textContent = '0°C/min';
             return;

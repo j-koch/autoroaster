@@ -3,7 +3,7 @@ bean_training:
   - 16
   - 16
   bean_variety: Sakaro
-  original_model_dir: models/kaleido/batched_sysid_20250914_141533
+  original_model_dir: models/kaleido/batched_sysid_20250917_200708
 export_info:
   exported_components:
   - state_estimator
@@ -19,7 +19,7 @@ input_specifications:
     input_dim: 1
   estimator:
     description: observables + inputs + mass_indicator
-    input_dim: 15
+    input_dim: 21
   observer:
     description: '[T_r, T_b, T_air, T_bm]'
     input_dim: 4
@@ -30,27 +30,27 @@ input_specifications:
       dt: time_step'
     dt_dim: 1
 model_info:
-  estimator_hidden_dim: 64
+  estimator_hidden_dim: 16
   n_latents: 5
   observer_hidden_dim: 8
   roaster_hidden_dims:
-  - 16
-  - 16
+  - 1
+  - 1
   roaster_type: drum
 state_structure:
   inputs_dim: 5
-  observables_dim: 9
+  observables_dim: 15
   state_keys:
     dt:
-    - 15
+    - 21
     inputs:
-    - 9
-    - 10
-    - 11
-    - 12
-    - 13
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
     mass:
-    - 14
+    - 20
     observables:
     - 0
     - 1
@@ -61,10 +61,24 @@ state_structure:
     - 6
     - 7
     - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    observables_t-0.0:
+    - 3
+    - 4
+    - 5
     observables_t-0.1:
-    - 6
-    - 7
-    - 8
+    - 9
+    - 10
+    - 11
+    observables_t-0.2:
+    - 12
+    - 13
+    - 14
     observables_t0:
     - 0
     - 1
@@ -73,12 +87,18 @@ state_structure:
   - bean_temp
   - environment_temp
   - temp_difference
+  - bean_temp_t-0.0
+  - environment_temp_t-0.0
+  - temp_difference_t-0.0
   - bean_temp_t-0.1
   - environment_temp_t-0.1
   - temp_difference_t-0.1
   - bean_temp_t-0.1
   - environment_temp_t-0.1
   - temp_difference_t-0.1
+  - bean_temp_t-0.2
+  - environment_temp_t-0.2
+  - temp_difference_t-0.2
   - heater
   - fan
   - drum

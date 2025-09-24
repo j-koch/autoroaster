@@ -11,7 +11,6 @@ class RoasterSimulator {
         // ONNX Runtime sessions for each model component
         this.sessions = {
             stateEstimator: null,
-            observer: null,
             roastStepper: null,
             beanModel: null
         };
@@ -39,7 +38,8 @@ class RoasterSimulator {
             bean: [],
             environment: [],
             roaster: [],
-            air: []
+            air: [],
+            airMeasured: []
         };
         this.controlData = {
             heater: [],
@@ -68,7 +68,7 @@ class RoasterSimulator {
             time: 60.0              // Convert seconds to minutes
         };
         
-        // Current system state [T_r, T_b, T_air, T_bm] (normalized)
+        // Current system state [T_r, T_b, T_air, T_bm, T_atm] (normalized)
         // Initialize with preheat conditions instead of room temperature
         this.currentState = this.initializePreheatState();
         
@@ -138,9 +138,8 @@ class RoasterSimulator {
         try {
             console.log('Loading ONNX models...');
             
-            // Load each model component
+            // Load each model component (no observer model needed)
             this.sessions.stateEstimator = await ort.InferenceSession.create('onnx_models/state_estimator.onnx');
-            this.sessions.observer = await ort.InferenceSession.create('onnx_models/observer.onnx');
             this.sessions.roastStepper = await ort.InferenceSession.create('onnx_models/roast_stepper.onnx');
             this.sessions.beanModel = await ort.InferenceSession.create('onnx_models/bean_model.onnx');
             
@@ -172,23 +171,26 @@ class RoasterSimulator {
      * Initialize state with preheat conditions
      * T_bm = preheat temp (180°C)
      * T_air = T_bm = 180°C  
-     * T_roaster = T_bm + 30°C = 210°C
+     * T_roaster = T_bm + 50°C = 230°C
      * T_b = room temperature = 25°C
+     * T_atm = measured air temp = T_air = 180°C
      */
     initializePreheatState() {
         const roomTemp = 25.0; // °C
         const preheatTemp = this.preheatTemp; // 180°C
-        const roasterTemp = preheatTemp + 50.0; // 210°C
-        const airTemp = preheatTemp; // 210°C
+        const roasterTemp = preheatTemp + 50.0; // 230°C
+        const airTemp = preheatTemp; // 180°C
+        const measuredAirTemp = preheatTemp; // 180°C (T_atm - measured air temperature)
         
         // Normalize temperatures using scaling factor
         const tempScale = this.scalingFactors.temperatures.bean;
         
         return new Float32Array([
-            roasterTemp / tempScale,  // T_r (roaster temperature)
-            roomTemp / tempScale,     // T_b (bean core temperature - starts at room temp)
-            airTemp / tempScale,  // T_air (air temperature)
-            preheatTemp / tempScale   // T_bm (bean measurement temperature)
+            roasterTemp / tempScale,     // T_r (roaster temperature)
+            roomTemp / tempScale,        // T_b (bean core temperature - starts at room temp)
+            airTemp / tempScale,         // T_air (air temperature)
+            preheatTemp / tempScale,     // T_bm (bean measurement temperature)
+            measuredAirTemp / tempScale  // T_atm (measured air temperature)
         ]);
     }
 
@@ -342,7 +344,7 @@ class RoasterSimulator {
         
         // Initialize simulation data
         this.timeData = [];
-        this.temperatureData = { bean: [], environment: [], roaster: [], air: [] };
+        this.temperatureData = { bean: [], environment: [], roaster: [], air: [], airMeasured: [] };
         this.controlData = { heater: [], fan: [], drum: [] };
         this.rateOfRiseData = [];  // Clear rate of rise data
         this.startTime = Date.now();
@@ -400,7 +402,7 @@ class RoasterSimulator {
         
         // Clear data
         this.timeData = [];
-        this.temperatureData = { bean: [], environment: [], roaster: [], air: [] };
+        this.temperatureData = { bean: [], environment: [], roaster: [], air: [], airMeasured: [] };
         this.controlData = { heater: [], fan: [], drum: [] };
         this.rateOfRiseData = [];  // Clear rate of rise data
         
@@ -435,8 +437,8 @@ class RoasterSimulator {
             }
             
             // Prepare controls for roast stepper
-            // Based on DrumRoaster.forward() in models.py: [heater, fan, drum, T_amb, humidity, mass, C_b, latent]
-            const stepperControls = new Float32Array(8);
+            // Based on DrumRoasterExtended.forward() in models.py: [heater, fan, drum, T_amb, humidity, mass, C_b]
+            const stepperControls = new Float32Array(7);
             stepperControls[0] = this.controls.heater;  // Already 0-1
             stepperControls[1] = this.controls.fan;     // Already 0-1
             stepperControls[2] = this.fixedParams.drum; // Already 0-1 (0.6)
@@ -444,15 +446,14 @@ class RoasterSimulator {
             stepperControls[4] = this.fixedParams.humidity / this.scalingFactors.controls.humidity; // Scale humidity
             stepperControls[5] = massValue / this.scalingFactors.mass;  // Scale mass
             stepperControls[6] = beanCapacity;  // Bean thermal capacity
-            stepperControls[7] = 0.0; // Additional latent (set to 0 for simplicity)
             
             // Time step (normalized)
             const dt = new Float32Array([this.timestep / this.scalingFactors.time]);
             
-            // Run roast stepper to get next state
+            // Run roast stepper to get next state (now expects 5-dimensional state)
             const stepperResult = await this.sessions.roastStepper.run({
-                current_state: new ort.Tensor('float32', this.currentState, [1, 4]),
-                current_controls: new ort.Tensor('float32', stepperControls, [1, 8]),
+                current_state: new ort.Tensor('float32', this.currentState, [1, 5]),
+                current_controls: new ort.Tensor('float32', stepperControls, [1, 7]),
                 dt: new ort.Tensor('float32', dt, [1, 1])
             });
             
@@ -466,6 +467,7 @@ class RoasterSimulator {
             this.temperatureData.environment.push(this.denormalizeTemperature(this.currentState[1])); // T_b (Bean Core Temperature)
             this.temperatureData.roaster.push(this.denormalizeTemperature(this.currentState[0])); // T_r (Roaster Temperature)
             this.temperatureData.air.push(this.denormalizeTemperature(this.currentState[2])); // T_air (Air Temperature)
+            this.temperatureData.airMeasured.push(this.denormalizeTemperature(this.currentState[4])); // T_atm (Measured Air Temperature)
             
             // Calculate rate of rise (°C/min) for plotting
             // For the first data point, rate of rise is 0
@@ -517,6 +519,7 @@ class RoasterSimulator {
             document.getElementById('env-temp').textContent = (this.preheatTemp + 30) + '°C';
             document.getElementById('roaster-temp').textContent = (this.preheatTemp + 50) + '°C';
             document.getElementById('air-temp').textContent = (this.preheatTemp) + '°C';
+            document.getElementById('air-temp-measured').textContent = (this.preheatTemp) + '°C';
             document.getElementById('roast-time').textContent = '00:00';
             document.getElementById('rate-of-rise').textContent = '0°C/min';
             return;
@@ -531,6 +534,7 @@ class RoasterSimulator {
         document.getElementById('env-temp').textContent = Math.round(this.temperatureData.environment[latest]) + '°C';
         document.getElementById('roaster-temp').textContent = Math.round(this.temperatureData.roaster[latest]) + '°C';
         document.getElementById('air-temp').textContent = Math.round(this.temperatureData.air[latest]) + '°C';
+        document.getElementById('air-temp-measured').textContent = Math.round(this.temperatureData.airMeasured[latest]) + '°C';
         
         // Update time display
         const minutes = Math.floor(currentTime);

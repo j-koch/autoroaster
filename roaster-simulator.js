@@ -18,7 +18,8 @@ class RoasterSimulator {
         // Simulation state
         this.isRunning = false;
         this.simulationInterval = null;
-        this.timestep = 1.5; // Fixed timestep in seconds
+        this.timestep = 1.5; // Fixed timestep in seconds (for physics calculations)
+        this.speedupFactor = 1; // Speedup multiplier (1x = real-time, 2x = double speed, etc.)
         
         // Roasting phases (simplified - no preheating)
         this.phases = {
@@ -90,6 +91,10 @@ class RoasterSimulator {
         this.previousBeanTemp = 25.0;
         this.previousTime = 0;
         
+        // Simulation time tracking (separate from wall-clock time)
+        this.simulationTime = 0; // Track simulation time in seconds
+        this.stepCount = 0;      // Count of simulation steps taken
+        
         this.initializeUI();
     }
     
@@ -101,10 +106,18 @@ class RoasterSimulator {
         const heaterSlider = document.getElementById('heater-slider');
         const fanSlider = document.getElementById('fan-slider');
         const massSlider = document.getElementById('mass-slider');
+        const speedupSelect = document.getElementById('speedup-select');
         
         const heaterValue = document.getElementById('heater-value');
         const fanValue = document.getElementById('fan-value');
         const massValue = document.getElementById('mass-value');
+        
+        // Store references to slider elements for enabling/disabling
+        this.sliderElements = {
+            mass: massSlider,
+            massValue: massValue,
+            massStatus: document.getElementById('mass-status')
+        };
         
         // Update control values and displays
         heaterSlider.addEventListener('input', (e) => {
@@ -118,8 +131,25 @@ class RoasterSimulator {
         });
         
         massSlider.addEventListener('input', (e) => {
-            this.controls.mass = parseFloat(e.target.value);
-            massValue.textContent = this.controls.mass + 'g';
+            // Only update if slider is not disabled
+            if (!e.target.disabled) {
+                this.controls.mass = parseFloat(e.target.value);
+                massValue.textContent = this.controls.mass + 'g';
+            }
+        });
+        
+        // Speedup control - can be changed during simulation
+        speedupSelect.addEventListener('change', (e) => {
+            this.speedupFactor = parseFloat(e.target.value);
+            console.log(`Simulation speed changed to ${this.speedupFactor}x`);
+            
+            // If simulation is running, restart the interval with new timing
+            if (this.isRunning && this.simulationInterval) {
+                clearInterval(this.simulationInterval);
+                // Calculate new interval: base timestep divided by speedup factor
+                const intervalMs = (this.timestep * 1000) / this.speedupFactor;
+                this.simulationInterval = setInterval(() => this.simulationStep(), intervalMs);
+            }
         });
         
         // Action buttons (removed preheat button)
@@ -310,12 +340,16 @@ class RoasterSimulator {
                 phaseDiv.textContent = `IDLE - Roaster Preheated to ${this.preheatTemp}°C`;
                 phaseDiv.className = 'roast-phase phase-charging';
                 chargeBtn.disabled = false;
+                // Enable mass slider when idle
+                this.setMassSliderEnabled(true);
                 break;
                 
             case this.phases.CHARGING:
                 phaseDiv.textContent = 'CHARGING - Adding Beans';
                 phaseDiv.className = 'roast-phase phase-charging';
                 chargeBtn.disabled = true;
+                // Disable mass slider once charging starts
+                this.setMassSliderEnabled(false);
                 break;
                 
             case this.phases.ROASTING:
@@ -323,6 +357,8 @@ class RoasterSimulator {
                 phaseDiv.className = 'roast-phase phase-roasting';
                 chargeBtn.disabled = true;
                 dropBtn.disabled = false;
+                // Keep mass slider disabled during roasting
+                this.setMassSliderEnabled(false);
                 break;
                 
             case this.phases.DROPPED:
@@ -330,7 +366,34 @@ class RoasterSimulator {
                 phaseDiv.className = 'roast-phase phase-dropped';
                 chargeBtn.disabled = true;
                 dropBtn.disabled = true;
+                // Keep mass slider disabled after dropping
+                this.setMassSliderEnabled(false);
                 break;
+        }
+    }
+    
+    /**
+     * Enable or disable the mass slider
+     * @param {boolean} enabled - Whether the mass slider should be enabled
+     */
+    setMassSliderEnabled(enabled) {
+        if (this.sliderElements) {
+            this.sliderElements.mass.disabled = !enabled;
+            
+            // Update visual styling to indicate disabled state
+            if (enabled) {
+                this.sliderElements.mass.style.opacity = '1';
+                this.sliderElements.mass.style.cursor = 'pointer';
+                this.sliderElements.massValue.style.opacity = '1';
+                this.sliderElements.massStatus.textContent = '- adjustable';
+                this.sliderElements.massStatus.style.color = '#666';
+            } else {
+                this.sliderElements.mass.style.opacity = '0.5';
+                this.sliderElements.mass.style.cursor = 'not-allowed';
+                this.sliderElements.massValue.style.opacity = '0.7';
+                this.sliderElements.massStatus.textContent = '- fixed during roast';
+                this.sliderElements.massStatus.style.color = '#8B4513';
+            }
         }
     }
     
@@ -338,7 +401,7 @@ class RoasterSimulator {
      * Charge beans into the roaster and start simulation
      */
     chargeBeans() {
-        console.log('Charging beans...');
+        console.log(`Charging beans (${this.controls.mass}g)...`);
         this.currentPhase = this.phases.CHARGING;
         this.updatePhaseDisplay();
         
@@ -349,12 +412,20 @@ class RoasterSimulator {
         this.rateOfRiseData = [];  // Clear rate of rise data
         this.startTime = Date.now();
         
+        // Reset simulation time tracking
+        this.simulationTime = 0;
+        this.stepCount = 0;
+        
         // Reset state to preheat conditions
         this.currentState = this.initializePreheatState();
         
-        // Start simulation loop
+        // Start simulation loop with speedup factor
         this.isRunning = true;
-        this.simulationInterval = setInterval(() => this.simulationStep(), this.timestep * 1000);
+        // Calculate interval: base timestep divided by speedup factor
+        const intervalMs = (this.timestep * 1000) / this.speedupFactor;
+        this.simulationInterval = setInterval(() => this.simulationStep(), intervalMs);
+        
+        console.log(`Starting simulation at ${this.speedupFactor}x speed (interval: ${intervalMs}ms) with ${this.controls.mass}g of beans`);
         
         // Simulate charging process (brief transition)
         setTimeout(() => {
@@ -406,6 +477,10 @@ class RoasterSimulator {
         this.controlData = { heater: [], fan: [], drum: [] };
         this.rateOfRiseData = [];  // Clear rate of rise data
         
+        // Reset simulation time tracking
+        this.simulationTime = 0;
+        this.stepCount = 0;
+        
         // Update UI
         this.updatePhaseDisplay();
         this.updateStatusDisplay();
@@ -419,12 +494,15 @@ class RoasterSimulator {
         if (!this.isRunning) return;
         
         try {
-            // Calculate current time
-            const currentTime = (Date.now() - this.startTime) / 1000; // seconds
-            const currentTimeMinutes = currentTime / 60; // minutes
+            // Update simulation time tracking (independent of wall-clock time)
+            // Each step advances simulation time by the physics timestep
+            this.simulationTime += this.timestep; // Add timestep in seconds
+            this.stepCount += 1;
+            const currentTimeMinutes = this.simulationTime / 60; // Convert to minutes for plotting
             
             // Determine if beans are present based on phase
-            const beansPresent = this.currentPhase === this.phases.ROASTING;
+            // Beans should be present during both CHARGING and ROASTING phases
+            const beansPresent = this.currentPhase === this.phases.CHARGING || this.currentPhase === this.phases.ROASTING;
             const massValue = beansPresent ? this.controls.mass : 0.0;
             
             // Get bean thermal capacity from bean model if beans are present

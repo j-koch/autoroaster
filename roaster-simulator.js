@@ -707,52 +707,90 @@ class RoasterSimulator {
 // Initialize the simulator when the page loads
 let simulator;
 
-/**
- * Close the information overlay modal
- */
-function closeInfoOverlay() {
+// Overlay management functions - ensure they're in global scope
+window.closeInfoOverlay = function() {
     const overlay = document.getElementById('info-overlay');
     if (overlay) {
         overlay.classList.add('hidden');
+        console.log('Overlay closed'); // Debug logging
     }
-}
+};
 
-/**
- * Show the information overlay modal
- */
-function showInfoOverlay() {
+window.showInfoOverlay = function() {
     const overlay = document.getElementById('info-overlay');
     if (overlay) {
         overlay.classList.remove('hidden');
+        console.log('Overlay shown'); // Debug logging
     }
-}
+};
+
+// Initialize overlay functionality when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up overlay event listeners');
+    
+    // Set up click-outside-to-close functionality
+    const overlay = document.getElementById('info-overlay');
+    const modal = document.querySelector('.info-modal');
+    const closeButton = document.querySelector('.close-button');
+    const startButton = document.querySelector('.get-started-button');
+    
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            // Only close if clicking on the overlay itself (not the modal content)
+            if (e.target === overlay) {
+                window.closeInfoOverlay();
+            }
+        });
+    }
+    
+    // Set up close button functionality
+    if (closeButton) {
+        closeButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.closeInfoOverlay();
+        });
+    }
+    
+    // Set up start button functionality
+    if (startButton) {
+        startButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.closeInfoOverlay();
+        });
+    }
+    
+    // Set up info button functionality
+    const infoButton = document.getElementById('info-button');
+    if (infoButton) {
+        infoButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.showInfoOverlay();
+        });
+    }
+    
+    // Set up escape key functionality
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('info-overlay');
+            if (overlay && !overlay.classList.contains('hidden')) {
+                window.closeInfoOverlay();
+            }
+        }
+    });
+});
 
 window.addEventListener('load', async () => {
+    console.log('Page loaded, initializing simulator');
     simulator = new RoasterSimulator();
     await simulator.loadModels();
     
     // Show the info overlay when the page loads
-    // Small delay to ensure the page is fully rendered
-    setTimeout(showInfoOverlay, 100);
-});
-
-// Allow closing the overlay by clicking outside the modal
-document.addEventListener('click', (e) => {
-    const overlay = document.getElementById('info-overlay');
-    const modal = document.querySelector('.info-modal');
-    
-    if (overlay && !overlay.classList.contains('hidden') && 
-        e.target === overlay && !modal.contains(e.target)) {
-        closeInfoOverlay();
-    }
-});
-
-// Allow closing the overlay with the Escape key
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        const overlay = document.getElementById('info-overlay');
-        if (overlay && !overlay.classList.contains('hidden')) {
-            closeInfoOverlay();
-        }
-    }
+    // Longer delay to ensure everything is ready on hosted environments
+    setTimeout(() => {
+        console.log('Showing initial overlay');
+        window.showInfoOverlay();
+    }, 500);
 });

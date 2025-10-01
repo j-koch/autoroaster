@@ -707,7 +707,52 @@ class RoasterSimulator {
 // Initialize the simulator when the page loads
 let simulator;
 
+/**
+ * Close the information overlay modal
+ */
+function closeInfoOverlay() {
+    const overlay = document.getElementById('info-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+}
+
+/**
+ * Show the information overlay modal
+ */
+function showInfoOverlay() {
+    const overlay = document.getElementById('info-overlay');
+    if (overlay) {
+        overlay.classList.remove('hidden');
+    }
+}
+
 window.addEventListener('load', async () => {
     simulator = new RoasterSimulator();
     await simulator.loadModels();
+    
+    // Show the info overlay when the page loads
+    // Small delay to ensure the page is fully rendered
+    setTimeout(showInfoOverlay, 100);
+});
+
+// Allow closing the overlay by clicking outside the modal
+document.addEventListener('click', (e) => {
+    const overlay = document.getElementById('info-overlay');
+    const modal = document.querySelector('.info-modal');
+    
+    if (overlay && !overlay.classList.contains('hidden') && 
+        e.target === overlay && !modal.contains(e.target)) {
+        closeInfoOverlay();
+    }
+});
+
+// Allow closing the overlay with the Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('info-overlay');
+        if (overlay && !overlay.classList.contains('hidden')) {
+            closeInfoOverlay();
+        }
+    }
 });

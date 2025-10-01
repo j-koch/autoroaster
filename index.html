@@ -285,9 +285,232 @@
             background-color: #d1ecf1;
             color: #0c5460;
         }
+        
+        /* Overlay Modal Styles */
+        .info-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .info-overlay.hidden {
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .info-modal {
+            background-color: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            margin: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .info-modal h1 {
+            color: #8B4513;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-align: center;
+            border-bottom: 2px solid #8B4513;
+            padding-bottom: 10px;
+        }
+        
+        .info-modal h2 {
+            color: #8B4513;
+            font-size: 18px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+        
+        .info-modal p {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .info-modal ul {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            padding-left: 20px;
+            font-size: 14px;
+        }
+        
+        .info-modal li {
+            margin-bottom: 8px;
+        }
+        
+        .info-modal .highlight {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #8B4513;
+            margin: 20px 0;
+            font-weight: bold;
+            color: #856404;
+        }
+        
+        .close-button {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .close-button:hover {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+        
+        .get-started-button {
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: block;
+            margin: 25px auto 0;
+            transition: background-color 0.3s ease;
+        }
+        
+        .get-started-button:hover {
+            background-color: #A0522D;
+        }
+        
+        .tech-specs {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .workflow-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .workflow-step {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 4px solid #8B4513;
+        }
+        
+        .workflow-step h3 {
+            margin: 0 0 10px 0;
+            color: #8B4513;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .workflow-step p {
+            margin: 0;
+            font-size: 12px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
+    <!-- Information Overlay Modal -->
+    <div id="info-overlay" class="info-overlay">
+        <div class="info-modal">
+            <button class="close-button" onclick="closeInfoOverlay()" title="Close">&times;</button>
+            
+            <h1>Coffee Roaster Digital Twin</h1>
+            
+            <h2>What's Happening Here?</h2>
+            <p>This is a virtual copy of my Kaleido M1 sample roaster. You can interact with this virtual roaster in the same way you'd use a real one. Instead of intensive physics simulations, the Digital Twin uses data-driven models to predict how coffee beans heat up, how the roaster responds to controls, and how all the physics interact in real-time.</p>
+            
+            <h2>The AI Under the Hood</h2>
+            <p>Multiple specialized neural network models work together to simulate the complex physics of coffee roasting. These models have been trained on real roasting data from my roaster to capture the relationships between heat, airflow, bean properties, and time.</p>
+            
+            <h2>How to Use This Demo</h2>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <h3>1. Setup</h3>
+                    <p>Adjust bean mass (50-200g) while idle</p>
+                </div>
+                <div class="workflow-step">
+                    <h3>2. Charge</h3>
+                    <p>Click "Charge Beans" to add coffee to the preheated roaster</p>
+                </div>
+                <div class="workflow-step">
+                    <h3>3. Control</h3>
+                    <p>Adjust heater power and fan speed during roasting</p>
+                </div>
+                <div class="workflow-step">
+                    <h3>4. Monitor</h3>
+                    <p>Watch real-time temperature curves and rate of rise</p>
+                </div>
+                <div class="workflow-step">
+                    <h3>5. Finish</h3>
+                    <p>Click "Drop Beans" when roast is complete (~8-12 minutes)</p>
+                </div>
+            </div>
+            
+            <h2>What You'll See</h2>
+            <ul>
+                <li><strong>Temperature Charts:</strong> Multiple temperature readings like a real roaster (bean temp, air temp, etc.)</li>
+                <li><strong>Rate of Rise:</strong> How fast the beans are heating up (critical for roast development)</li>
+                <li><strong>Control Inputs:</strong> Your heater and fan adjustments over time</li>
+                <li><strong>Real-time Status:</strong> All the key measurements a roast operator would monitor</li>
+            </ul>
+            
+            <h2>About This Model</h2>
+            <div class="tech-specs">
+                <strong>Training Data:</strong> Built from roughly a dozen roasts on an unmodified Kaleido M1 sample roaster<br>
+                <strong>Default Bean Model:</strong> Calibrated for Ethiopian Guji beans (though mass is adjustable)<br>
+                <strong>Sensor Requirements:</strong> Uses only standard drum roaster instrumentation - bean thermocouple and environment thermocouple<br>
+            </div>
+            
+            <button class="get-started-button" onclick="closeInfoOverlay()">Start Roasting! ☕</button>
+        </div>
+    </div>
+    
     <div class="container">
         <!-- Left Sidebar -->
         <div class="sidebar">
@@ -346,6 +569,7 @@
                 <button id="charge-btn" class="btn-success">Charge Beans</button>
                 <button id="drop-btn" class="btn-danger" disabled>Drop Beans</button>
                 <button id="reset-btn" class="btn-primary">Reset</button>
+                <button onclick="showInfoOverlay()" class="btn-secondary" title="Show information about this demo">ℹ️ What's This?</button>
             </div>
             
             <!-- Status Display -->

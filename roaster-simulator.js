@@ -254,28 +254,28 @@ class RoasterSimulator {
             {
                 x: [],
                 y: [],
-                name: 'Bean Temperature (Measured)',
+                name: 'Bean Probe',
                 line: { color: '#8B4513', width: 3 },
                 yaxis: 'y'  // Use left y-axis
             },
             {
                 x: [],
                 y: [],
-                name: 'Bean Core Temperature',
+                name: 'Bean Surface',
                 line: { color: '#FF6B35', width: 2 },
                 yaxis: 'y'  // Use left y-axis
             },
             {
                 x: [],
                 y: [],
-                name: 'Roaster Temperature',
+                name: 'Drum',
                 line: { color: '#4ECDC4', width: 2 },
                 yaxis: 'y'  // Use left y-axis
             },
             {
                 x: [],
                 y: [],
-                name: 'Air Temperature',
+                name: 'Env. Probe',
                 line: { color: '#45B7D1', width: 2 },
                 yaxis: 'y'  // Use left y-axis
             },
@@ -303,19 +303,19 @@ class RoasterSimulator {
             {
                 x: [],
                 y: [],
-                name: 'Heater Power',
+                name: 'Heat',
                 line: { color: '#FF4444', width: 2 }
             },
             {
                 x: [],
                 y: [],
-                name: 'Fan Speed',
+                name: 'Fan',
                 line: { color: '#4444FF', width: 2 }
             },
             {
                 x: [],
                 y: [],
-                name: 'Drum Speed (Fixed)',
+                name: 'Drum (fixed)',
                 line: { color: '#888888', width: 2, dash: 'dash' }
             }
         ];

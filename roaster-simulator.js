@@ -209,7 +209,7 @@ class RoasterSimulator {
         const roomTemp = 25.0; // °C
         const preheatTemp = this.preheatTemp; // 180°C
         const roasterTemp = preheatTemp + 50.0; // 230°C
-        const airTemp = preheatTemp; // 180°C
+        const airTemp = preheatTemp - 40.0; // 180°C
         const measuredAirTemp = preheatTemp; // 180°C (T_atm - measured air temperature)
         
         // Normalize temperatures using scaling factor

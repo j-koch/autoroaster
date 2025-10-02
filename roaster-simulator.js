@@ -19,7 +19,7 @@ class RoasterSimulator {
         this.isRunning = false;
         this.simulationInterval = null;
         this.timestep = 1.5; // Fixed timestep in seconds (for physics calculations)
-        this.speedupFactor = 1; // Speedup multiplier (1x = real-time, 2x = double speed, etc.)
+        this.speedupFactor = 8; // Speedup multiplier (1x = real-time, 2x = double speed, etc.) - Default to 8x
         
         // Roasting phases (simplified - no preheating)
         this.phases = {

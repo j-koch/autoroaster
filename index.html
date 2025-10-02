@@ -465,9 +465,6 @@
             <h2>What's Happening Here?</h2>
             <p>This is a virtual copy of my Kaleido M1 sample roaster. You can interact with this virtual roaster in the same way you'd use a real one. Instead of intensive physics simulations, the Digital Twin uses data-driven models to predict how coffee beans heat up, how the roaster responds to controls, and how all the physics interact in real-time.</p>
             
-            <h2>The AI Under the Hood</h2>
-            <p>Multiple specialized neural network models work together to simulate the complex physics of coffee roasting. These models have been trained on real roasting data from my roaster to capture the relationships between heat, airflow, bean properties, and time.</p>
-            
             <h2>How to Use This Demo</h2>
             <div class="workflow-steps">
                 <div class="workflow-step">
@@ -475,8 +472,8 @@
                     <p>Adjust bean mass (50-200g) while idle</p>
                 </div>
                 <div class="workflow-step">
-                    <h3>2. Charge</h3>
-                    <p>Click "Charge Beans" to add coffee to the preheated roaster</p>
+                    <h3>2. Add Beans</h3>
+                    <p>Click "Add Beans" to charge the roaster</p>
                 </div>
                 <div class="workflow-step">
                     <h3>3. Control</h3>
@@ -486,25 +483,6 @@
                     <h3>4. Monitor</h3>
                     <p>Watch real-time temperature curves and rate of rise</p>
                 </div>
-                <div class="workflow-step">
-                    <h3>5. Finish</h3>
-                    <p>Click "Drop Beans" when roast is complete (~8-12 minutes)</p>
-                </div>
-            </div>
-            
-            <h2>What You'll See</h2>
-            <ul>
-                <li><strong>Temperature Charts:</strong> Multiple temperature readings like a real roaster (bean temp, air temp, etc.)</li>
-                <li><strong>Rate of Rise:</strong> How fast the beans are heating up (critical for roast development)</li>
-                <li><strong>Control Inputs:</strong> Your heater and fan adjustments over time</li>
-                <li><strong>Real-time Status:</strong> All the key measurements a roast operator would monitor</li>
-            </ul>
-            
-            <h2>About This Model</h2>
-            <div class="tech-specs">
-                <strong>Training Data:</strong> Built from roughly a dozen roasts on an unmodified Kaleido M1 sample roaster<br>
-                <strong>Default Bean Model:</strong> Calibrated for Ethiopian Guji beans (though mass is adjustable)<br>
-                <strong>Sensor Requirements:</strong> Uses only standard drum roaster instrumentation - bean thermocouple and environment thermocouple<br>
             </div>
             
             <button class="get-started-button">Start Roasting!</button>
@@ -565,8 +543,8 @@
             
             <!-- Action Buttons -->
             <div class="button-group">
-                <button id="charge-btn" class="btn-success">Charge Beans</button>
-                <button id="drop-btn" class="btn-danger" disabled>Drop Beans</button>
+                <button id="charge-btn" class="btn-success">Add Beans</button>
+                <button id="drop-btn" class="btn-danger" disabled>Stop</button>
                 <button id="reset-btn" class="btn-primary">Reset</button>
                 <button id="info-button" class="btn-secondary" title="Show information about this demo">ℹ️ What's This?</button>
             </div>

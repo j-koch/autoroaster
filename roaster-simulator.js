@@ -664,7 +664,7 @@ class RoasterSimulator {
      * @returns {Object} forecast - Object containing time and temperature arrays for all state variables
      */
     async compute60SecondForecast() {
-        const forecastHorizon = 120; // seconds into the future
+        const forecastHorizon = 240; // seconds into the future
         const forecastSteps = Math.ceil(forecastHorizon / this.timestep); // Number of steps to forecast
         
         // Arrays to store forecast trajectory for all state variables
@@ -826,11 +826,18 @@ class RoasterSimulator {
      * Update Plotly charts
      */
     updateCharts() {
-        // Calculate xlimit: maximum of 10 minutes or (last time stamp) + 1 minute
+        // Calculate xlimit: maximum of 10 minutes or (last time stamp) + forecast horizon
         let xlimit = 10; // Default minimum of 10 minutes
         if (this.timeData.length > 0) {
             const lastTimeStamp = this.timeData[this.timeData.length - 1];
-            xlimit = Math.max(10, lastTimeStamp + 1);
+            // If we have forecast data, extend to the end of the forecast
+            // Otherwise, add 1 minute as a buffer
+            if (this.forecastData.time.length > 0) {
+                const lastForecastTime = this.forecastData.time[this.forecastData.time.length - 1];
+                xlimit = Math.max(10, lastForecastTime + 0.5); // Add 0.5 minute buffer beyond forecast
+            } else {
+                xlimit = Math.max(10, lastTimeStamp + 1);
+            }
         }
         
         // Calculate ylimit for temperature chart: maximum of 200°C and (max temperature + 25°C)

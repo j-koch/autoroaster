@@ -51,6 +51,17 @@ class RoasterSimulator {
         this.rateOfRiseData = [];
         this.startTime = null;
         
+        // Forecast data storage (120-second predictions from current timestep)
+        // Stores the most recent forecast trajectory computed at each simulation step
+        this.forecastData = {
+            time: [],           // Time points for the forecast (relative to current time)
+            bean: [],           // Predicted bean temperatures
+            environment: [],    // Predicted bean surface temperatures
+            roaster: [],        // Predicted roaster temperatures
+            air: [],            // Predicted air temperatures
+            rateOfRise: []      // Predicted rate of rise (°C/min) for bean temperature
+        };
+        
         // Scaling factors from dataset.py - ArtisanRoastDataset.SCALING_FACTORS
         this.scalingFactors = {
             temperatures: {
@@ -285,6 +296,51 @@ class RoasterSimulator {
                 name: 'Rate of Rise',
                 line: { color: '#FF1493', width: 2, dash: 'dot' },
                 yaxis: 'y2'  // Use right y-axis
+            },
+            {
+                x: [],
+                y: [],
+                name: 'Bean Forecast',
+                line: { color: '#8B4513', width: 2, dash: 'dash' },
+                yaxis: 'y',
+                opacity: 0.6,
+                showlegend: false  // Hide from legend
+            },
+            {
+                x: [],
+                y: [],
+                name: 'Surface Forecast',
+                line: { color: '#FF6B35', width: 1.5, dash: 'dash' },
+                yaxis: 'y',
+                opacity: 0.5,
+                showlegend: false  // Hide from legend
+            },
+            {
+                x: [],
+                y: [],
+                name: 'Drum Forecast',
+                line: { color: '#4ECDC4', width: 1.5, dash: 'dash' },
+                yaxis: 'y',
+                opacity: 0.5,
+                showlegend: false  // Hide from legend
+            },
+            {
+                x: [],
+                y: [],
+                name: 'Air Forecast',
+                line: { color: '#45B7D1', width: 1.5, dash: 'dash' },
+                yaxis: 'y',
+                opacity: 0.5,
+                showlegend: false  // Hide from legend
+            },
+            {
+                x: [],
+                y: [],
+                name: 'RoR Forecast',
+                line: { color: '#FF1493', width: 2, dash: 'dash' },
+                yaxis: 'y2',  // Use right y-axis (rate of rise axis)
+                opacity: 0.6,
+                showlegend: false  // Hide from legend
             }
         ];
         
@@ -565,6 +621,26 @@ class RoasterSimulator {
             this.controlData.fan.push(this.controls.fan);
             this.controlData.drum.push(this.fixedParams.drum);
             
+            // Compute 120-second forecast from current state
+            // This inner loop predicts the next 120 seconds using current control inputs
+            if (beansPresent) {
+                const forecast = await this.compute60SecondForecast();
+                this.forecastData.time = forecast.time;
+                this.forecastData.bean = forecast.bean;
+                this.forecastData.environment = forecast.environment;
+                this.forecastData.roaster = forecast.roaster;
+                this.forecastData.air = forecast.air;
+                this.forecastData.rateOfRise = forecast.rateOfRise;
+            } else {
+                // Clear forecast if no beans present
+                this.forecastData.time = [];
+                this.forecastData.bean = [];
+                this.forecastData.environment = [];
+                this.forecastData.roaster = [];
+                this.forecastData.air = [];
+                this.forecastData.rateOfRise = [];
+            }
+            
             // Update UI
             this.updateStatusDisplay();
             this.updateCharts();
@@ -578,6 +654,120 @@ class RoasterSimulator {
                 this.simulationInterval = null;
             }
         }
+    }
+    
+    /**
+     * Compute 120-second forecast from current state using current control inputs
+     * This is an inner loop that predicts future temperatures over the next 120 seconds
+     * using the control inputs fixed at their current values
+     * 
+     * @returns {Object} forecast - Object containing time and temperature arrays for all state variables
+     */
+    async compute60SecondForecast() {
+        const forecastHorizon = 120; // seconds into the future
+        const forecastSteps = Math.ceil(forecastHorizon / this.timestep); // Number of steps to forecast
+        
+        // Arrays to store forecast trajectory for all state variables
+        const forecastTime = [];           // Time points in minutes (relative to current simulation time)
+        const forecastBeanTemp = [];       // Predicted bean probe temperatures (T_bm) in °C
+        const forecastEnvironmentTemp = []; // Predicted bean surface temperatures (T_b) in °C
+        const forecastRoasterTemp = [];    // Predicted roaster temperatures (T_r) in °C
+        const forecastAirTemp = [];        // Predicted air temperatures (T_air) in °C
+        
+        // Create a copy of current state to use for forecasting
+        // We don't want to modify the actual simulation state
+        let forecastState = new Float32Array(this.currentState);
+        
+        // Determine if beans are present (same logic as main simulation)
+        const beansPresent = this.currentPhase === this.phases.CHARGING || this.currentPhase === this.phases.ROASTING;
+        const massValue = beansPresent ? this.controls.mass : 0.0;
+        
+        // Get current bean thermal capacity (will be updated in the loop)
+        let beanCapacity = 0.5; // Default
+        if (beansPresent && this.sessions.beanModel) {
+            const beanModelResult = await this.sessions.beanModel.run({
+                bean_temperature: new ort.Tensor('float32', [forecastState[1]], [1, 1])
+            });
+            beanCapacity = beanModelResult.thermal_capacity.data[0];
+        }
+        
+        // Prepare control inputs (fixed at current values for the entire forecast)
+        // Shape: [heater, fan, drum, T_amb, humidity, mass, C_b]
+        const forecastControls = new Float32Array(7);
+        forecastControls[0] = this.controls.heater;  // Current heater setting
+        forecastControls[1] = this.controls.fan;     // Current fan setting
+        forecastControls[2] = this.fixedParams.drum; // Fixed drum speed
+        forecastControls[3] = this.fixedParams.ambient / this.scalingFactors.controls.ambient;
+        forecastControls[4] = this.fixedParams.humidity / this.scalingFactors.controls.humidity;
+        forecastControls[5] = massValue / this.scalingFactors.mass;
+        
+        // Normalized timestep for model
+        const dt = new Float32Array([this.timestep / this.scalingFactors.time]);
+        
+        // Run forecast loop: iterate forward in time using the roast stepper
+        for (let step = 0; step < forecastSteps; step++) {
+            // Update bean capacity based on current forecast state
+            if (beansPresent && this.sessions.beanModel) {
+                const beanModelResult = await this.sessions.beanModel.run({
+                    bean_temperature: new ort.Tensor('float32', [forecastState[1]], [1, 1])
+                });
+                beanCapacity = beanModelResult.thermal_capacity.data[0];
+                forecastControls[6] = beanCapacity;  // Update bean thermal capacity
+            } else {
+                forecastControls[6] = beanCapacity;
+            }
+            
+            // Predict next state using roast stepper
+            const stepperResult = await this.sessions.roastStepper.run({
+                current_state: new ort.Tensor('float32', forecastState, [1, 5]),
+                current_controls: new ort.Tensor('float32', forecastControls, [1, 7]),
+                dt: new ort.Tensor('float32', dt, [1, 1])
+            });
+            
+            // Update forecast state for next iteration
+            forecastState = new Float32Array(stepperResult.next_state.data);
+            
+            // Store forecast data point
+            // Time is relative to current simulation time (in minutes)
+            const forecastTimePoint = this.simulationTime / 60 + (step + 1) * this.timestep / 60;
+            forecastTime.push(forecastTimePoint);
+            
+            // Extract and denormalize all state variables
+            // State vector: [T_r, T_b, T_air, T_bm, T_atm]
+            forecastRoasterTemp.push(this.denormalizeTemperature(forecastState[0]));      // T_r (roaster)
+            forecastEnvironmentTemp.push(this.denormalizeTemperature(forecastState[1]));  // T_b (bean surface)
+            forecastAirTemp.push(this.denormalizeTemperature(forecastState[2]));          // T_air (air)
+            forecastBeanTemp.push(this.denormalizeTemperature(forecastState[3]));         // T_bm (bean probe)
+        }
+        
+        // Calculate rate of rise for the forecast
+        // Rate of rise (°C/min) is the change in temperature divided by the change in time
+        const forecastRateOfRise = [];
+        for (let i = 0; i < forecastBeanTemp.length; i++) {
+            if (i === 0) {
+                // For the first forecast point, calculate RoR from current actual temperature to first forecast
+                const currentBeanTemp = this.denormalizeTemperature(this.currentState[3]);
+                const timeDiff = forecastTime[0] - (this.simulationTime / 60);
+                const tempDiff = forecastBeanTemp[0] - currentBeanTemp;
+                const rateOfRise = timeDiff > 0 ? tempDiff / timeDiff : 0;
+                forecastRateOfRise.push(rateOfRise);
+            } else {
+                // For subsequent points, calculate RoR between consecutive forecast points
+                const timeDiff = forecastTime[i] - forecastTime[i - 1];
+                const tempDiff = forecastBeanTemp[i] - forecastBeanTemp[i - 1];
+                const rateOfRise = timeDiff > 0 ? tempDiff / timeDiff : 0;
+                forecastRateOfRise.push(rateOfRise);
+            }
+        }
+        
+        return {
+            time: forecastTime,
+            bean: forecastBeanTemp,
+            environment: forecastEnvironmentTemp,
+            roaster: forecastRoasterTemp,
+            air: forecastAirTemp,
+            rateOfRise: forecastRateOfRise
+        };
     }
     
     /**
@@ -657,15 +847,23 @@ class RoasterSimulator {
             ylimit = Math.max(200, maxTemp + 25);
         }
         
-        // Update temperature chart (including rate of rise on second y-axis)
+        // Update temperature chart (including rate of rise on second y-axis and all forecasts)
         const tempUpdate = {
-            x: [this.timeData, this.timeData, this.timeData, this.timeData, this.timeData],
+            x: [
+                this.timeData, this.timeData, this.timeData, this.timeData, this.timeData,
+                this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time
+            ],
             y: [
                 this.temperatureData.bean,
                 this.temperatureData.environment,
                 this.temperatureData.roaster,
                 this.temperatureData.air,
-                this.rateOfRiseData  // Rate of rise data for the 5th trace (second y-axis)
+                this.rateOfRiseData,           // Rate of rise (5th trace, second y-axis)
+                this.forecastData.bean,        // Bean forecast (6th trace)
+                this.forecastData.environment, // Surface forecast (7th trace)
+                this.forecastData.roaster,     // Drum forecast (8th trace)
+                this.forecastData.air,         // Air forecast (9th trace)
+                this.forecastData.rateOfRise   // Rate of rise forecast (10th trace, second y-axis)
             ]
         };
         Plotly.restyle('temperature-chart', tempUpdate);
@@ -677,11 +875,28 @@ class RoasterSimulator {
             y2limit = Math.max(10, maxRateOfRise + 2);
         }
         
-        // Update temperature chart axis ranges
+        // Add vertical line at current time to mark forecast boundary
+        const currentTimeMinutes = this.timeData.length > 0 ? this.timeData[this.timeData.length - 1] : 0;
+        const shapes = this.timeData.length > 0 ? [{
+            type: 'line',
+            x0: currentTimeMinutes,
+            x1: currentTimeMinutes,
+            y0: 0,
+            y1: 1,
+            yref: 'paper',  // Use paper coordinates (0-1) for y-axis to span full height
+            line: {
+                color: 'rgba(0, 0, 0, 0.3)',
+                width: 2,
+                dash: 'dot'
+            }
+        }] : [];
+        
+        // Update temperature chart axis ranges and add vertical line
         const tempLayoutUpdate = {
             'xaxis.range': [0, xlimit],
             'yaxis.range': [0, ylimit],
-            'yaxis2.range': [0, y2limit]  // Ensure second y-axis starts at 0
+            'yaxis2.range': [0, y2limit],  // Ensure second y-axis starts at 0
+            shapes: shapes  // Add vertical line marking current time
         };
         Plotly.relayout('temperature-chart', tempLayoutUpdate);
         
@@ -696,9 +911,25 @@ class RoasterSimulator {
         };
         Plotly.restyle('control-chart', controlUpdate);
         
-        // Update control chart x-axis range
+        // Add vertical line at current time to control chart as well
+        const controlShapes = this.timeData.length > 0 ? [{
+            type: 'line',
+            x0: currentTimeMinutes,
+            x1: currentTimeMinutes,
+            y0: 0,
+            y1: 1,
+            yref: 'paper',  // Use paper coordinates (0-1) for y-axis to span full height
+            line: {
+                color: 'rgba(0, 0, 0, 0.3)',
+                width: 2,
+                dash: 'dot'
+            }
+        }] : [];
+        
+        // Update control chart x-axis range and add vertical line
         const controlLayoutUpdate = {
-            'xaxis.range': [0, xlimit]
+            'xaxis.range': [0, xlimit],
+            shapes: controlShapes  // Add vertical line marking current time
         };
         Plotly.relayout('control-chart', controlLayoutUpdate);
     }

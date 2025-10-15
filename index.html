@@ -452,6 +452,244 @@
             font-size: 12px;
             color: #666;
         }
+        
+        /* Mobile Hamburger Menu Styles */
+        .mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1001;
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 15px;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .mobile-menu-toggle:active {
+            background-color: #A0522D;
+        }
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            /* Show hamburger menu button on mobile */
+            .mobile-menu-toggle {
+                display: block;
+            }
+            
+            /* Adjust container layout for mobile - stack vertically */
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+            
+            /* Sidebar becomes full-width and collapsible on mobile */
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #ddd;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1000;
+                background-color: #f9f9f9;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                overflow-y: auto;
+                padding-top: 60px; /* Space for hamburger menu */
+            }
+            
+            /* Show sidebar when active */
+            .sidebar.active {
+                transform: translateX(0);
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+            }
+            
+            /* Main content takes full width on mobile */
+            .main-content {
+                width: 100%;
+                flex: 1;
+                padding: 15px;
+                padding-top: 60px; /* Space for hamburger menu */
+            }
+            
+            /* Adjust heading sizes for mobile */
+            h1 {
+                font-size: 24px;
+                margin-bottom: 20px;
+                padding-top: 10px;
+            }
+            
+            .controls-section h2,
+            .status-section h2 {
+                font-size: 16px;
+            }
+            
+            /* Increase touch target sizes for sliders */
+            .slider {
+                height: 8px;
+            }
+            
+            .slider::-webkit-slider-thumb {
+                width: 28px;
+                height: 28px;
+            }
+            
+            .slider::-moz-range-thumb {
+                width: 28px;
+                height: 28px;
+            }
+            
+            /* Larger buttons for easier tapping */
+            button {
+                padding: 14px 20px;
+                font-size: 16px;
+                min-height: 48px; /* Minimum touch target size */
+            }
+            
+            /* Adjust control groups for better spacing */
+            .control-group {
+                margin-bottom: 20px;
+            }
+            
+            .control-group label {
+                font-size: 15px;
+                margin-bottom: 8px;
+            }
+            
+            /* Better spacing for value displays */
+            .value-display {
+                min-width: 70px;
+                font-size: 15px;
+            }
+            
+            /* Adjust status display for mobile */
+            .status-item {
+                padding: 12px 0;
+            }
+            
+            .status-label {
+                font-size: 15px;
+            }
+            
+            .status-value {
+                font-size: 17px;
+            }
+            
+            /* Charts resize for mobile - shorter heights */
+            .chart-container.temperature {
+                height: 350px;
+                margin-bottom: 15px;
+            }
+            
+            .chart-container.control {
+                height: 200px;
+                margin-bottom: 15px;
+            }
+            
+            /* Info modal adjustments for mobile */
+            .info-modal {
+                max-width: 95%;
+                max-height: 90vh;
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .info-modal h1 {
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+            
+            .info-modal h2 {
+                font-size: 16px;
+                margin-top: 20px;
+            }
+            
+            .info-modal p,
+            .info-modal ul {
+                font-size: 14px;
+            }
+            
+            .workflow-steps {
+                grid-template-columns: 1fr;
+            }
+            
+            .workflow-step {
+                padding: 12px;
+            }
+            
+            .roast-phase {
+                font-size: 16px;
+                padding: 12px;
+            }
+            
+            /* Adjust sections padding for mobile */
+            .controls-section,
+            .status-section {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            /* Make select dropdowns more touch-friendly */
+            select {
+                min-height: 44px;
+                font-size: 16px;
+            }
+        }
+        
+        /* Extra small screens (phones in portrait) */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 20px;
+            }
+            
+            .chart-container.temperature {
+                height: 300px;
+            }
+            
+            .chart-container.control {
+                height: 180px;
+            }
+            
+            .info-modal {
+                padding: 15px;
+            }
+            
+            .info-modal h1 {
+                font-size: 18px;
+            }
+            
+            button {
+                font-size: 15px;
+            }
+        }
+        
+        /* Landscape orientation optimizations */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .main-content {
+                padding-top: 50px;
+            }
+            
+            .sidebar {
+                padding-top: 50px;
+            }
+            
+            .chart-container.temperature {
+                height: 280px;
+            }
+            
+            .chart-container.control {
+                height: 160px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -496,9 +734,14 @@
         </div>
     </div>
     
+    <!-- Mobile Menu Toggle Button -->
+    <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle menu">
+        ☰
+    </button>
+    
     <div class="container">
         <!-- Left Sidebar -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <h1>AutoRoaster</h1>
             
             <!-- Loading/Error Messages -->

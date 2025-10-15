@@ -1053,6 +1053,53 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    
+    // Mobile menu toggle functionality
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (mobileMenuToggle && sidebar) {
+        // Toggle sidebar when hamburger menu is clicked
+        mobileMenuToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            sidebar.classList.toggle('active');
+            
+            // Update button appearance when sidebar is open
+            if (sidebar.classList.contains('active')) {
+                mobileMenuToggle.textContent = '✕'; // Change to X when open
+            } else {
+                mobileMenuToggle.textContent = '☰'; // Change back to hamburger when closed
+            }
+        });
+        
+        // Close sidebar when clicking outside of it on mobile
+        document.addEventListener('click', function(e) {
+            // Check if click is outside sidebar and toggle button
+            if (sidebar.classList.contains('active') && 
+                !sidebar.contains(e.target) && 
+                !mobileMenuToggle.contains(e.target)) {
+                sidebar.classList.remove('active');
+                mobileMenuToggle.textContent = '☰';
+            }
+        });
+        
+        // Close sidebar when clicking on buttons inside it (like Add Beans, Stop, Reset)
+        // This improves UX on mobile - after user clicks a button, they probably want to see the charts
+        const sidebarButtons = sidebar.querySelectorAll('button');
+        sidebarButtons.forEach(button => {
+            // Only auto-close for action buttons, not the info button
+            if (button.id !== 'info-button') {
+                button.addEventListener('click', function() {
+                    // Check if we're on mobile (sidebar has active class capability)
+                    if (window.innerWidth <= 768 && sidebar.classList.contains('active')) {
+                        sidebar.classList.remove('active');
+                        mobileMenuToggle.textContent = '☰';
+                    }
+                });
+            }
+        });
+    }
 });
 
 window.addEventListener('load', async () => {

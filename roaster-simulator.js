@@ -15,6 +15,10 @@ class RoasterSimulator {
             beanModel: null
         };
         
+        // Track the selected bean model filename
+        // Default to 'bean_guji.onnx' (matches the default selected option in HTML)
+        this.selectedBeanModel = 'bean_guji.onnx';
+        
         // Simulation state
         this.isRunning = false;
         this.simulationInterval = null;
@@ -130,6 +134,33 @@ class RoasterSimulator {
             massStatus: document.getElementById('mass-status')
         };
         
+        // Bean model selector
+        const beanModelSelect = document.getElementById('bean-model-select');
+        beanModelSelect.addEventListener('change', async (e) => {
+            // Only allow changing bean model when idle (not during a roast)
+            if (this.currentPhase !== this.phases.IDLE) {
+                // Revert the selection back to the current model
+                e.target.value = this.selectedBeanModel;
+                alert('Please reset the simulation before changing the bean model.');
+                return;
+            }
+            
+            // Update the selected bean model
+            this.selectedBeanModel = e.target.value;
+            console.log(`Bean model changed to: ${this.selectedBeanModel}`);
+            
+            // Reload the bean model
+            try {
+                const beanModelPath = `onnx_models/${this.selectedBeanModel}`;
+                console.log(`Loading bean model from: ${beanModelPath}`);
+                this.sessions.beanModel = await ort.InferenceSession.create(beanModelPath);
+                console.log('Bean model loaded successfully');
+            } catch (error) {
+                console.error('Error loading bean model:', error);
+                this.showError('Failed to load bean model: ' + error.message);
+            }
+        });
+        
         // Update control values and displays
         heaterSlider.addEventListener('input', (e) => {
             this.controls.heater = parseFloat(e.target.value);
@@ -182,7 +213,11 @@ class RoasterSimulator {
             // Load each model component (no observer model needed)
             this.sessions.stateEstimator = await ort.InferenceSession.create('onnx_models/state_estimator.onnx');
             this.sessions.roastStepper = await ort.InferenceSession.create('onnx_models/roast_stepper.onnx');
-            this.sessions.beanModel = await ort.InferenceSession.create('onnx_models/bean_model.onnx');
+            
+            // Load the selected bean model (uses this.selectedBeanModel which defaults to 'bean_guji.onnx')
+            const beanModelPath = `onnx_models/${this.selectedBeanModel}`;
+            console.log(`Loading bean model from: ${beanModelPath}`);
+            this.sessions.beanModel = await ort.InferenceSession.create(beanModelPath);
             
             console.log('All ONNX models loaded successfully');
             

@@ -1,8 +1,8 @@
 bean_training:
   bean_hidden_dims:
-  - 5
+  - 16
   bean_variety: Hambela_Buliye
-  original_model_dir: models/kaleido/batched_sysid_20251013_210036
+  original_model_dir: models/kaleido/batched_sysid_20251014_155459
 export_info:
   exported_components:
   - state_estimator
@@ -25,7 +25,7 @@ input_specifications:
       dt: time_step'
     dt_dim: 1
 model_info:
-  estimator_hidden_dim: 64
+  estimator_hidden_dim: 32
   n_latents: 6
   roaster_hidden_dims:
   - 1

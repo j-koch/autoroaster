@@ -88,10 +88,10 @@ class RoasterSimulator {
         // Initialize with preheat conditions instead of room temperature
         this.currentState = this.initializePreheatState();
         
-        // Fixed parameters
+        // Fixed parameters (ambient temperature is adjustable via slider)
         this.fixedParams = {
             drum: 0.6,        // Fixed drum speed
-            ambient: 24.0,    // Fixed ambient temperature (°C)
+            ambient: 24.0,    // Ambient temperature (°C) - adjustable via slider, default 24°C
             humidity: 0.5     // Fixed humidity
         };
         
@@ -121,11 +121,13 @@ class RoasterSimulator {
         const heaterSlider = document.getElementById('heater-slider');
         const fanSlider = document.getElementById('fan-slider');
         const massSlider = document.getElementById('mass-slider');
+        const ambientSlider = document.getElementById('ambient-slider');
         const speedupSelect = document.getElementById('speedup-select');
         
         const heaterValue = document.getElementById('heater-value');
         const fanValue = document.getElementById('fan-value');
         const massValue = document.getElementById('mass-value');
+        const ambientValue = document.getElementById('ambient-value');
         
         // Store references to slider elements for enabling/disabling
         this.sliderElements = {
@@ -178,6 +180,12 @@ class RoasterSimulator {
                 this.controls.mass = parseFloat(e.target.value);
                 massValue.textContent = this.controls.mass + 'g';
             }
+        });
+        
+        // Ambient temperature slider - updates the ambient temperature parameter
+        ambientSlider.addEventListener('input', (e) => {
+            this.fixedParams.ambient = parseFloat(e.target.value);
+            ambientValue.textContent = this.fixedParams.ambient + '°C';
         });
         
         // Speedup control - can be changed during simulation
@@ -476,13 +484,11 @@ class RoasterSimulator {
                 this.sliderElements.mass.style.opacity = '1';
                 this.sliderElements.mass.style.cursor = 'pointer';
                 this.sliderElements.massValue.style.opacity = '1';
-                this.sliderElements.massStatus.textContent = '- adjustable';
                 this.sliderElements.massStatus.style.color = '#666';
             } else {
                 this.sliderElements.mass.style.opacity = '0.5';
                 this.sliderElements.mass.style.cursor = 'not-allowed';
                 this.sliderElements.massValue.style.opacity = '0.7';
-                this.sliderElements.massStatus.textContent = '- fixed during roast';
                 this.sliderElements.massStatus.style.color = '#8B4513';
             }
         }

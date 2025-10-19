@@ -228,17 +228,16 @@ class RoasterSimulator {
         document.getElementById('drop-btn').addEventListener('click', () => this.dropBeans());
         document.getElementById('reset-btn').addEventListener('click', () => this.reset());
         
-        // Profile management buttons (will be added to HTML)
-        const regenerateProfileBtn = document.getElementById('regenerate-profile-btn');
-        if (regenerateProfileBtn) {
-            regenerateProfileBtn.addEventListener('click', () => this.regenerateBackgroundProfile());
-        }
-        
+        // Profile management button
         const editProfileBtn = document.getElementById('edit-profile-btn');
         if (editProfileBtn) {
             editProfileBtn.addEventListener('click', () => {
-                alert('Profile editor coming soon! For now, use "New Random" to try different profiles.');
-                // TODO: Open profile designer modal in future phase
+                // Open the interactive profile editor
+                if (window.profileEditor) {
+                    window.profileEditor.open(this.backgroundProfile);
+                } else {
+                    alert('Profile editor not loaded. Please refresh the page.');
+                }
             });
         }
         
@@ -445,8 +444,8 @@ class RoasterSimulator {
     }
 
     /**
-     * Generate a random background profile and add to chart
-     * This creates an initial reference profile for the user to try matching
+     * Generate an idealized default background profile
+     * This creates a well-balanced reference profile that represents a good medium roast
      */
     generateBackgroundProfile() {
         // Generate time array (10 minutes with 0.1 minute resolution)
@@ -455,10 +454,54 @@ class RoasterSimulator {
             times.push(t);
         }
         
-        // Generate random profile using ProfileGenerator
-        this.backgroundProfile = ProfileGenerator.generateRandomProfile(times);
+        // Create idealized profile using specific waypoints
+        // This represents a classic, well-balanced medium roast profile
+        const idealWaypoints = [
+            { time: 0, temp: 25 },      // Start at room temperature
+            { time: 1, temp: 100 },     // Quick initial heating (drying phase)
+            { time: 3, temp: 150 },     // Beginning of Maillard reactions
+            { time: 5.5, temp: 180 },   // Approaching first crack
+            { time: 7, temp: 200 },     // Through first crack
+            { time: 9, temp: 215 },     // Development phase
+            { time: 10, temp: 220 }     // Final temperature - medium roast
+        ];
         
-        console.log('Generated background profile:', this.backgroundProfile.metadata);
+        // Interpolate between waypoints to create smooth profile
+        const temps = times.map(t => {
+            // Find surrounding waypoints
+            let i = 0;
+            while (i < idealWaypoints.length - 1 && idealWaypoints[i + 1].time < t) {
+                i++;
+            }
+            
+            if (i === idealWaypoints.length - 1) {
+                return idealWaypoints[i].temp;
+            }
+            
+            // Linear interpolation
+            const w1 = idealWaypoints[i];
+            const w2 = idealWaypoints[i + 1];
+            const fraction = (t - w1.time) / (w2.time - w1.time);
+            return w1.temp + fraction * (w2.temp - w1.temp);
+        });
+        
+        // Create profile object
+        this.backgroundProfile = {
+            times: times,
+            temps: temps,
+            metadata: {
+                name: 'Idealized Medium Roast',
+                description: 'Well-balanced reference profile for medium roast',
+                duration: 10,
+                startTemp: 25,
+                maxTemp: 220,
+                finalTemp: 220,
+                nWaypoints: idealWaypoints.length,
+                generated: new Date().toISOString()
+            }
+        };
+        
+        console.log('Generated idealized background profile:', this.backgroundProfile.metadata);
         
         // Add to chart
         this.addBackgroundProfileToChart();
@@ -662,6 +705,28 @@ class RoasterSimulator {
             x: [this.backgroundProfile.times],
             y: [this.backgroundProfile.temps]
         }, [10]);  // Update trace at index 10
+    }
+    
+    /**
+     * Set a custom background profile
+     * Used by the profile editor to update the reference profile
+     * 
+     * @param {Object} profile - Profile object with times, temps, metadata
+     */
+    setBackgroundProfile(profile) {
+        if (!profile || !profile.times || !profile.temps) {
+            console.error('Invalid profile provided');
+            return;
+        }
+        
+        this.backgroundProfile = profile;
+        console.log('Set custom background profile:', profile.metadata);
+        
+        // Update the chart trace (trace index 10)
+        Plotly.restyle('temperature-chart', {
+            x: [profile.times],
+            y: [profile.temps]
+        }, [10]);
     }
     
     /**
@@ -1423,9 +1488,6 @@ class RoasterSimulator {
     }
 }
 
-// Initialize the simulator when the page loads
-let simulator;
-
 // Overlay management functions - ensure they're in global scope
 window.closeInfoOverlay = function() {
     const overlay = document.getElementById('info-overlay');
@@ -1550,8 +1612,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 window.addEventListener('load', async () => {
     console.log('Page loaded, initializing simulator');
-    simulator = new RoasterSimulator();
-    await simulator.loadModels();
+    window.simulator = new RoasterSimulator();
+    await window.simulator.loadModels();
     
     // Show the info overlay when the page loads
     // Longer delay to ensure everything is ready on hosted environments

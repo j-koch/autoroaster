@@ -14,6 +14,9 @@
     <!-- Profile Generator -->
     <script src="profile-generator.js"></script>
     
+    <!-- Profile Editor -->
+    <script src="profile-editor.js"></script>
+    
     <!-- Controllers -->
     <script src="controllers.js"></script>
     
@@ -190,6 +193,15 @@
         
         .btn-danger:hover {
             background-color: #c82333;
+        }
+        
+        .btn-edit {
+            background-color: #6f42c1;
+            color: white;
+        }
+        
+        .btn-edit:hover {
+            background-color: #5a32a3;
         }
         
         .status-section {
@@ -764,6 +776,7 @@
                 <button id="charge-btn" class="btn-success">Add Beans</button>
                 <button id="drop-btn" class="btn-danger" disabled>Stop</button>
                 <button id="reset-btn" class="btn-primary">Reset</button>
+                <button id="edit-profile-btn" class="btn-edit">✏️ Edit Profile</button>
                 <button id="info-button" class="btn-secondary" title="Show information about this demo">ℹ️ What's This?</button>
             </div>
             
@@ -790,8 +803,8 @@
                     <div class="control-group" style="margin-top: 8px; margin-bottom: 8px;">
                         <label for="heater-kp-slider" style="font-size: 12px;">Kp (Proportional)</label>
                         <div class="slider-container">
-                            <input type="range" id="heater-kp-slider" class="slider" min="0" max="0.05" step="0.001" value="0.01">
-                            <span id="heater-kp-value" class="value-display" style="font-size: 12px;">0.010</span>
+                            <input type="range" id="heater-kp-slider" class="slider" min="0" max="0.1" step="0.001" value="0.05">
+                            <span id="heater-kp-value" class="value-display" style="font-size: 12px;">0.050</span>
                         </div>
                     </div>
                     <div class="control-group" style="margin-top: 8px; margin-bottom: 8px;">
@@ -861,27 +874,6 @@
                     </select>
                 </div>
             </div>
-            
-            <!-- Profile Section (at bottom of sidebar) -->
-            <div class="controls-section">
-                <h2>Reference Profile</h2>
-                
-                <div class="control-group">
-                    <label>Background Target</label>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="regenerate-profile-btn" class="btn-secondary" style="flex: 1; font-size: 13px;">
-                            🔄 New Random
-                        </button>
-                        <button id="edit-profile-btn" class="btn-primary" style="flex: 1; font-size: 13px;">
-                            ✏️ Edit
-                        </button>
-                    </div>
-                    <p style="font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 0;">
-                        A random roast profile is shown as a dashed line. Try to match it with manual control!
-                    </p>
-                </div>
-            </div>
-            
         </div>
         
         <!-- Main Content Area -->

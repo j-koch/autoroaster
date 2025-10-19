@@ -11,6 +11,12 @@
     <!-- Plotly.js for visualization -->
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     
+    <!-- Profile Generator -->
+    <script src="profile-generator.js"></script>
+    
+    <!-- Controllers -->
+    <script src="controllers.js"></script>
+    
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -753,9 +759,68 @@
                 PREHEATING
             </div>
             
+            <!-- Profile Section -->
+            <div class="controls-section">
+                <h2>Reference Profile</h2>
+                
+                <div class="control-group">
+                    <label>Background Target</label>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="regenerate-profile-btn" class="btn-secondary" style="flex: 1; font-size: 13px;">
+                            🔄 New Random
+                        </button>
+                        <button id="edit-profile-btn" class="btn-primary" style="flex: 1; font-size: 13px;">
+                            ✏️ Edit
+                        </button>
+                    </div>
+                    <p style="font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 0;">
+                        A random roast profile is shown as a dashed line. Try to match it with manual control!
+                    </p>
+                </div>
+            </div>
+            
             <!-- Control Section -->
             <div class="controls-section">
                 <h2>Controls</h2>
+                
+                <div class="control-group">
+                    <label for="control-mode-select">Control Mode</label>
+                    <select id="control-mode-select" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; width: 100%;">
+                        <option value="manual">Manual Control</option>
+                        <option value="pid">PID Controller</option>
+                        <option value="neural" disabled>Neural Controller (Coming Soon)</option>
+                    </select>
+                </div>
+                
+                <!-- PID Tuning Section (hidden by default) -->
+                <div id="pid-tuning-section" style="display: none; margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 6px; border-left: 3px solid #8B4513;">
+                    <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 14px; color: #8B4513;">Heater PID Tuning</h3>
+                    <p style="font-size: 11px; color: #666; margin-top: 0; margin-bottom: 12px;">
+                        PID controls heater only. Set fan speed manually below.
+                    </p>
+                    
+                    <div class="control-group" style="margin-top: 8px; margin-bottom: 8px;">
+                        <label for="heater-kp-slider" style="font-size: 12px;">Kp (Proportional)</label>
+                        <div class="slider-container">
+                            <input type="range" id="heater-kp-slider" class="slider" min="0" max="0.05" step="0.001" value="0.01">
+                            <span id="heater-kp-value" class="value-display" style="font-size: 12px;">0.010</span>
+                        </div>
+                    </div>
+                    <div class="control-group" style="margin-top: 8px; margin-bottom: 8px;">
+                        <label for="heater-ki-slider" style="font-size: 12px;">Ki (Integral)</label>
+                        <div class="slider-container">
+                            <input type="range" id="heater-ki-slider" class="slider" min="0" max="0.005" step="0.0001" value="0.001">
+                            <span id="heater-ki-value" class="value-display" style="font-size: 12px;">0.001</span>
+                        </div>
+                    </div>
+                    <div class="control-group" style="margin-top: 8px; margin-bottom: 0;">
+                        <label for="heater-kd-slider" style="font-size: 12px;">Kd (Derivative)</label>
+                        <div class="slider-container">
+                            <input type="range" id="heater-kd-slider" class="slider" min="0" max="0.02" step="0.001" value="0.005">
+                            <span id="heater-kd-value" class="value-display" style="font-size: 12px;">0.005</span>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="control-group">
                     <label for="bean-model-select">Bean Model</label>

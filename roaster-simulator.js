@@ -110,6 +110,16 @@ class RoasterSimulator {
         this.simulationTime = 0; // Track simulation time in seconds
         this.stepCount = 0;      // Count of simulation steps taken
         
+        // Background reference profile (randomized on load)
+        // This will be initialized after models load
+        this.backgroundProfile = null;
+        
+        // Controller mode and instances
+        this.controlMode = 'manual';  // 'manual', 'pid', or 'neural'
+        this.pidController = null;    // Will be initialized when needed
+        this.neuralController = null; // Neural controller (MPC-trained)
+        this.neuralControllerConfig = null; // Neural controller metadata
+        
         this.initializeUI();
     }
     
@@ -135,6 +145,17 @@ class RoasterSimulator {
             massValue: massValue,
             massStatus: document.getElementById('mass-status')
         };
+        
+        // Control mode selector
+        const controlModeSelect = document.getElementById('control-mode-select');
+        if (controlModeSelect) {
+            controlModeSelect.addEventListener('change', (e) => {
+                this.setControlMode(e.target.value);
+            });
+        }
+        
+        // PID tuning sliders
+        this.setupPIDTuningSliders();
         
         // Bean model selector
         const beanModelSelect = document.getElementById('bean-model-select');
@@ -207,6 +228,20 @@ class RoasterSimulator {
         document.getElementById('drop-btn').addEventListener('click', () => this.dropBeans());
         document.getElementById('reset-btn').addEventListener('click', () => this.reset());
         
+        // Profile management buttons (will be added to HTML)
+        const regenerateProfileBtn = document.getElementById('regenerate-profile-btn');
+        if (regenerateProfileBtn) {
+            regenerateProfileBtn.addEventListener('click', () => this.regenerateBackgroundProfile());
+        }
+        
+        const editProfileBtn = document.getElementById('edit-profile-btn');
+        if (editProfileBtn) {
+            editProfileBtn.addEventListener('click', () => {
+                alert('Profile editor coming soon! For now, use "New Random" to try different profiles.');
+                // TODO: Open profile designer modal in future phase
+            });
+        }
+        
         // Initialize charts
         this.initializeCharts();
     }
@@ -229,6 +264,12 @@ class RoasterSimulator {
             
             console.log('All ONNX models loaded successfully');
             
+            // Load neural controller (optional - will fail gracefully if not available)
+            await this.loadNeuralController();
+            
+            // Generate and display background profile
+            this.generateBackgroundProfile();
+            
             // Hide loading message and show interface
             document.getElementById('loading').style.display = 'none';
             document.getElementById('roast-phase').style.display = 'block';
@@ -239,6 +280,131 @@ class RoasterSimulator {
             console.error('Error loading ONNX models:', error);
             this.showError('Failed to load ONNX models: ' + error.message);
         }
+    }
+    
+    /**
+     * Load neural controller (ONNX model + metadata)
+     * This is optional - will fail gracefully if files don't exist
+     */
+    async loadNeuralController() {
+        try {
+            console.log('Loading neural controller...');
+            
+            // Load controller metadata
+            console.log('Fetching metadata from: onnx_models/controller_metadata.yaml');
+            const metadataResponse = await fetch('onnx_models/controller_metadata.yaml');
+            if (!metadataResponse.ok) {
+                throw new Error(`Controller metadata not found (status: ${metadataResponse.status})`);
+            }
+            
+            const metadataText = await metadataResponse.text();
+            console.log('Metadata loaded, parsing...');
+            
+            // Parse YAML metadata (simple parser for our needs)
+            this.neuralControllerConfig = this.parseYAML(metadataText);
+            console.log('Parsed metadata:', this.neuralControllerConfig);
+            
+            // Load ONNX controller model
+            console.log('Loading ONNX model from: onnx_models/control_policy.onnx');
+            const controllerSession = await ort.InferenceSession.create('onnx_models/control_policy.onnx');
+            console.log('ONNX model loaded successfully');
+            
+            // Initialize neural controller
+            this.neuralController = new NeuralController(
+                controllerSession,
+                this.neuralControllerConfig,
+                this
+            );
+            
+            console.log('✅ Neural controller loaded successfully');
+            
+            // Enable neural controller option in UI
+            const neuralOption = document.querySelector('option[value="neural"]');
+            if (neuralOption) {
+                neuralOption.disabled = false;
+                neuralOption.textContent = 'Neural Controller (MPC)';
+                console.log('Neural controller option enabled in UI');
+            } else {
+                console.error('Could not find neural controller option element');
+            }
+            
+        } catch (error) {
+            console.error('Failed to load neural controller:', error);
+            console.error('Stack trace:', error.stack);
+            // This is okay - neural controller is optional
+            console.warn('Neural controller will not be available');
+        }
+    }
+    
+    /**
+     * Simple YAML parser for controller metadata
+     * 
+     * @param {string} yamlText - YAML text to parse
+     * @returns {Object} - Parsed object
+     */
+    parseYAML(yamlText) {
+        const result = {};
+        const lines = yamlText.split('\n');
+        let currentObj = result;
+        const stack = [result];
+        let currentIndent = 0;
+        
+        for (const line of lines) {
+            // Skip empty lines, comments, and special YAML tags
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!!python')) continue;
+            if (trimmed.startsWith('-') && !trimmed.includes(':')) continue; // Skip list items without keys
+            
+            // Calculate indentation
+            const indent = line.search(/\S/);
+            if (indent < 0) continue; // Skip if no content
+            
+            // Handle indent changes
+            if (indent < currentIndent) {
+                // Pop stack until we reach the right level
+                const diff = Math.ceil((currentIndent - indent) / 2);
+                for (let i = 0; i < diff && stack.length > 1; i++) {
+                    stack.pop();
+                }
+                currentObj = stack[stack.length - 1];
+            }
+            currentIndent = indent;
+            
+            // Parse key-value pair
+            const colonIdx = trimmed.indexOf(':');
+            if (colonIdx > 0) {
+                const key = trimmed.substring(0, colonIdx).trim();
+                const value = trimmed.substring(colonIdx + 1).trim();
+                
+                // Make sure currentObj is defined
+                if (!currentObj || typeof currentObj !== 'object') {
+                    console.warn('Invalid YAML structure at key:', key);
+                    continue;
+                }
+                
+                if (!value || value === '') {
+                    // This is a parent key - create new object
+                    currentObj[key] = {};
+                    stack.push(currentObj[key]);
+                    currentObj = currentObj[key];
+                } else {
+                    // This is a leaf value
+                    // Try to parse as number
+                    if (!isNaN(value) && value !== '' && !value.startsWith('0x')) {
+                        currentObj[key] = parseFloat(value);
+                    } else if (value === 'true') {
+                        currentObj[key] = true;
+                    } else if (value === 'false') {
+                        currentObj[key] = false;
+                    } else {
+                        // String value - remove quotes if present
+                        currentObj[key] = value.replace(/^["']|["']$/g, '');
+                    }
+                }
+            }
+        }
+        
+        return result;
     }
     
     /**
@@ -278,6 +444,226 @@ class RoasterSimulator {
         ]);
     }
 
+    /**
+     * Generate a random background profile and add to chart
+     * This creates an initial reference profile for the user to try matching
+     */
+    generateBackgroundProfile() {
+        // Generate time array (10 minutes with 0.1 minute resolution)
+        const times = [];
+        for (let t = 0; t <= 10; t += 0.1) {
+            times.push(t);
+        }
+        
+        // Generate random profile using ProfileGenerator
+        this.backgroundProfile = ProfileGenerator.generateRandomProfile(times);
+        
+        console.log('Generated background profile:', this.backgroundProfile.metadata);
+        
+        // Add to chart
+        this.addBackgroundProfileToChart();
+    }
+    
+    /**
+     * Add background profile as a trace on the temperature chart
+     */
+    addBackgroundProfileToChart() {
+        if (!this.backgroundProfile) {
+            console.warn('No background profile to add to chart');
+            return;
+        }
+        
+        // Add as 11th trace (index 10) after the 10 existing traces
+        Plotly.addTraces('temperature-chart', {
+            x: this.backgroundProfile.times,
+            y: this.backgroundProfile.temps,
+            name: 'Target Profile',
+            line: {
+                color: 'rgba(139, 69, 19, 0.4)',  // Muted brown, semi-transparent
+                width: 3,
+                dash: 'dashdot'
+            },
+            yaxis: 'y',
+            mode: 'lines',
+            hovertemplate: 'Target: %{y:.1f}°C<br>Time: %{x:.2f} min<extra></extra>'
+        });
+    }
+    
+    /**
+     * Set controller mode
+     * 
+     * @param {string} mode - 'manual', 'pid', or 'neural'
+     */
+    setControlMode(mode) {
+        console.log(`Switching control mode to: ${mode}`);
+        
+        // Reset controller states when switching
+        if (this.pidController) {
+            this.pidController.reset();
+        }
+        
+        this.controlMode = mode;
+        
+        // Initialize PID controller if switching to PID mode
+        // Use single PID for heater only
+        if (mode === 'pid' && !this.pidController) {
+            this.pidController = new PIDController(0.01, 0.001, 0.005);
+            console.log('Initialized single PID controller for heater');
+        }
+        
+        // Update UI to reflect mode change
+        this.updateControlModeUI();
+    }
+    
+    /**
+     * Setup PID tuning sliders (heater only)
+     */
+    setupPIDTuningSliders() {
+        // Heater PID sliders
+        const heaterKpSlider = document.getElementById('heater-kp-slider');
+        const heaterKiSlider = document.getElementById('heater-ki-slider');
+        const heaterKdSlider = document.getElementById('heater-kd-slider');
+        
+        const heaterKpValue = document.getElementById('heater-kp-value');
+        const heaterKiValue = document.getElementById('heater-ki-value');
+        const heaterKdValue = document.getElementById('heater-kd-value');
+        
+        if (heaterKpSlider) {
+            heaterKpSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                heaterKpValue.textContent = value.toFixed(3);
+                if (this.pidController) {
+                    this.pidController.setGains(value, null, null);
+                }
+            });
+        }
+        
+        if (heaterKiSlider) {
+            heaterKiSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                heaterKiValue.textContent = value.toFixed(4);
+                if (this.pidController) {
+                    this.pidController.setGains(null, value, null);
+                }
+            });
+        }
+        
+        if (heaterKdSlider) {
+            heaterKdSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                heaterKdValue.textContent = value.toFixed(3);
+                if (this.pidController) {
+                    this.pidController.setGains(null, null, value);
+                }
+            });
+        }
+    }
+    
+    /**
+     * Update UI elements based on control mode
+     */
+    updateControlModeUI() {
+        const heaterSlider = document.getElementById('heater-slider');
+        const fanSlider = document.getElementById('fan-slider');
+        const controlModeSelect = document.getElementById('control-mode-select');
+        
+        // Determine which sliders to enable based on mode
+        const isManual = this.controlMode === 'manual';
+        const isPID = this.controlMode === 'pid';
+        const isNeural = this.controlMode === 'neural';
+        
+        // Manual mode: both sliders enabled
+        // PID mode: heater disabled (PID controls it), fan enabled (manual)
+        // Neural mode: both disabled (neural controls both)
+        
+        if (heaterSlider) {
+            heaterSlider.disabled = !isManual;
+            heaterSlider.style.opacity = isManual ? '1' : '0.5';
+        }
+        
+        if (fanSlider) {
+            // Fan is manual in PID mode, but disabled in neural mode
+            const fanEnabled = isManual || isPID;
+            fanSlider.disabled = !fanEnabled;
+            fanSlider.style.opacity = fanEnabled ? '1' : '0.5';
+        }
+        
+        // Update control mode selector
+        if (controlModeSelect && controlModeSelect.value !== this.controlMode) {
+            controlModeSelect.value = this.controlMode;
+        }
+        
+        // Show/hide PID tuning section
+        const pidTuningSection = document.getElementById('pid-tuning-section');
+        if (pidTuningSection) {
+            pidTuningSection.style.display = (this.controlMode === 'pid') ? 'block' : 'none';
+        }
+    }
+    
+    /**
+     * Get setpoint temperature from background profile at current time
+     * 
+     * @param {number} currentTime - Current time in minutes
+     * @returns {number} - Target temperature in °C
+     */
+    getSetpointFromProfile(currentTime) {
+        if (!this.backgroundProfile || !this.backgroundProfile.times || this.backgroundProfile.times.length === 0) {
+            // No profile available, return current temperature as fallback
+            return this.denormalizeTemperature(this.currentState[3]);
+        }
+        
+        // Find the closest time point in the profile
+        // Use linear interpolation between points
+        const times = this.backgroundProfile.times;
+        const temps = this.backgroundProfile.temps;
+        
+        // Clamp currentTime to profile bounds
+        if (currentTime <= times[0]) {
+            return temps[0];
+        }
+        if (currentTime >= times[times.length - 1]) {
+            return temps[temps.length - 1];
+        }
+        
+        // Find surrounding points for interpolation
+        let i = 0;
+        while (i < times.length - 1 && times[i + 1] < currentTime) {
+            i++;
+        }
+        
+        // Linear interpolation
+        const t1 = times[i];
+        const t2 = times[i + 1];
+        const T1 = temps[i];
+        const T2 = temps[i + 1];
+        
+        const fraction = (currentTime - t1) / (t2 - t1);
+        return T1 + fraction * (T2 - T1);
+    }
+    
+    /**
+     * Regenerate background profile with a new random profile
+     * Updates the chart trace with new data
+     */
+    regenerateBackgroundProfile() {
+        // Generate time array (same as before)
+        const times = [];
+        for (let t = 0; t <= 10; t += 0.1) {
+            times.push(t);
+        }
+        
+        // Generate new random profile
+        this.backgroundProfile = ProfileGenerator.generateRandomProfile(times);
+        
+        console.log('Regenerated background profile:', this.backgroundProfile.metadata);
+        
+        // Update the chart trace (trace index 10)
+        Plotly.restyle('temperature-chart', {
+            x: [this.backgroundProfile.times],
+            y: [this.backgroundProfile.temps]
+        }, [10]);  // Update trace at index 10
+    }
+    
     /**
      * Initialize Plotly charts
      */
@@ -611,11 +997,63 @@ class RoasterSimulator {
                 beanCapacity = beanModelResult.thermal_capacity.data[0];
             }
             
+            // Determine control actions based on control mode
+            let heaterControl = this.controls.heater;
+            let fanControl = this.controls.fan;
+            
+            if (this.controlMode === 'pid' && beansPresent && this.pidController) {
+                // Get setpoint from background profile
+                const setpoint = this.getSetpointFromProfile(currentTimeMinutes);
+                
+                // Get current measurement (Bean Probe temperature, T_bm at index 3)
+                const measurement = this.denormalizeTemperature(this.currentState[3]);
+                
+                // Compute PID control action for heater only
+                heaterControl = this.pidController.compute(setpoint, measurement, this.simulationTime);
+                
+                // Fan remains manual control (use slider value)
+                fanControl = this.controls.fan;
+                
+                // Update heater display value for UI
+                this.controls.heater = heaterControl;
+                const heaterValue = document.getElementById('heater-value');
+                if (heaterValue) heaterValue.textContent = Math.round(heaterControl * 100) + '%';
+                
+            } else if (this.controlMode === 'neural' && beansPresent && this.neuralController) {
+                // Neural controller computes both heater and fan
+                const controlActions = await this.neuralController.compute({
+                    currentState: this.currentState,
+                    currentTime: currentTimeMinutes,
+                    getSetpoint: (time) => this.getSetpointFromProfile(time),
+                    generateForecast: async (heat, fan) => {
+                        // Generate forecast with specified control inputs
+                        const saved = { heater: this.controls.heater, fan: this.controls.fan };
+                        this.controls.heater = heat;
+                        this.controls.fan = fan;
+                        const forecast = await this.compute60SecondForecast();
+                        this.controls.heater = saved.heater;
+                        this.controls.fan = saved.fan;
+                        return forecast;
+                    }
+                });
+                
+                heaterControl = controlActions.heat;
+                fanControl = controlActions.fan;
+                
+                // Update display values for UI
+                this.controls.heater = heaterControl;
+                this.controls.fan = fanControl;
+                const heaterValue = document.getElementById('heater-value');
+                const fanValue = document.getElementById('fan-value');
+                if (heaterValue) heaterValue.textContent = Math.round(heaterControl * 100) + '%';
+                if (fanValue) fanValue.textContent = Math.round(fanControl * 100) + '%';
+            }
+            
             // Prepare controls for roast stepper
             // Based on DrumRoasterExtended.forward() in models.py: [heater, fan, drum, T_amb, humidity, mass, C_b]
             const stepperControls = new Float32Array(7);
-            stepperControls[0] = this.controls.heater;  // Already 0-1
-            stepperControls[1] = this.controls.fan;     // Already 0-1
+            stepperControls[0] = heaterControl;  // Already 0-1
+            stepperControls[1] = fanControl;     // Already 0-1
             stepperControls[2] = this.fixedParams.drum; // Already 0-1 (0.6)
             stepperControls[3] = this.fixedParams.ambient / this.scalingFactors.controls.ambient;  // Scale temperature
             stepperControls[4] = this.fixedParams.humidity / this.scalingFactors.controls.humidity; // Scale humidity
@@ -895,11 +1333,12 @@ class RoasterSimulator {
             ylimit = Math.max(200, maxTemp + 25);
         }
         
-        // Update temperature chart (including rate of rise on second y-axis and all forecasts)
+        // Update temperature chart (including rate of rise on second y-axis, all forecasts, and background profile)
         const tempUpdate = {
             x: [
                 this.timeData, this.timeData, this.timeData, this.timeData, this.timeData,
-                this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time
+                this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time,
+                this.backgroundProfile ? this.backgroundProfile.times : []  // Background profile (11th trace, index 10)
             ],
             y: [
                 this.temperatureData.bean,
@@ -911,7 +1350,8 @@ class RoasterSimulator {
                 this.forecastData.environment, // Surface forecast (7th trace)
                 this.forecastData.roaster,     // Drum forecast (8th trace)
                 this.forecastData.air,         // Air forecast (9th trace)
-                this.forecastData.rateOfRise   // Rate of rise forecast (10th trace, second y-axis)
+                this.forecastData.rateOfRise,  // Rate of rise forecast (10th trace, second y-axis)
+                this.backgroundProfile ? this.backgroundProfile.temps : []  // Background profile (11th trace, index 10)
             ]
         };
         Plotly.restyle('temperature-chart', tempUpdate);

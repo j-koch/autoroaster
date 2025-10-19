@@ -322,7 +322,7 @@ class RoasterSimulator {
             const neuralOption = document.querySelector('option[value="neural"]');
             if (neuralOption) {
                 neuralOption.disabled = false;
-                neuralOption.textContent = 'Neural Controller (MPC)';
+                neuralOption.textContent = 'AutoRoaster';
                 console.log('Neural controller option enabled in UI');
             } else {
                 console.error('Could not find neural controller option element');

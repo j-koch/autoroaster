@@ -759,24 +759,12 @@
                 PREHEATING
             </div>
             
-            <!-- Profile Section -->
-            <div class="controls-section">
-                <h2>Reference Profile</h2>
-                
-                <div class="control-group">
-                    <label>Background Target</label>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="regenerate-profile-btn" class="btn-secondary" style="flex: 1; font-size: 13px;">
-                            🔄 New Random
-                        </button>
-                        <button id="edit-profile-btn" class="btn-primary" style="flex: 1; font-size: 13px;">
-                            ✏️ Edit
-                        </button>
-                    </div>
-                    <p style="font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 0;">
-                        A random roast profile is shown as a dashed line. Try to match it with manual control!
-                    </p>
-                </div>
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button id="charge-btn" class="btn-success">Add Beans</button>
+                <button id="drop-btn" class="btn-danger" disabled>Stop</button>
+                <button id="reset-btn" class="btn-primary">Reset</button>
+                <button id="info-button" class="btn-secondary" title="Show information about this demo">ℹ️ What's This?</button>
             </div>
             
             <!-- Control Section -->
@@ -874,46 +862,26 @@
                 </div>
             </div>
             
-            <!-- Action Buttons -->
-            <div class="button-group">
-                <button id="charge-btn" class="btn-success">Add Beans</button>
-                <button id="drop-btn" class="btn-danger" disabled>Stop</button>
-                <button id="reset-btn" class="btn-primary">Reset</button>
-                <button id="info-button" class="btn-secondary" title="Show information about this demo">ℹ️ What's This?</button>
+            <!-- Profile Section (at bottom of sidebar) -->
+            <div class="controls-section">
+                <h2>Reference Profile</h2>
+                
+                <div class="control-group">
+                    <label>Background Target</label>
+                    <div style="display: flex; gap: 10px;">
+                        <button id="regenerate-profile-btn" class="btn-secondary" style="flex: 1; font-size: 13px;">
+                            🔄 New Random
+                        </button>
+                        <button id="edit-profile-btn" class="btn-primary" style="flex: 1; font-size: 13px;">
+                            ✏️ Edit
+                        </button>
+                    </div>
+                    <p style="font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 0;">
+                        A random roast profile is shown as a dashed line. Try to match it with manual control!
+                    </p>
+                </div>
             </div>
             
-            <!-- Status Display -->
-            <div class="status-section">
-                <h2>Status</h2>
-                <div class="status-item">
-                    <div class="status-label">Bean Probe</div>
-                    <div id="bean-temp" class="status-value">25°C</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Bean Surface</div>
-                    <div id="env-temp" class="status-value">25°C</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Drum</div>
-                    <div id="roaster-temp" class="status-value">25°C</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Environment</div>
-                    <div id="air-temp" class="status-value">25°C</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Environment Probe</div>
-                    <div id="air-temp-measured" class="status-value">25°C</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Roast Time</div>
-                    <div id="roast-time" class="status-value">00:00</div>
-                </div>
-                <div class="status-item">
-                    <div class="status-label">Rate of Rise</div>
-                    <div id="rate-of-rise" class="status-value">0°C/min</div>
-                </div>
-            </div>
         </div>
         
         <!-- Main Content Area -->
@@ -923,6 +891,31 @@
             
             <!-- Control Chart -->
             <div id="control-chart" class="chart-container control"></div>
+            
+            <!-- Status Display (transposed layout - horizontal) -->
+            <div class="status-section">
+                <h2>Status</h2>
+                <!-- Labels row -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 8px;">
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Bean Probe</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Bean Surface</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Drum</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Environment</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Env Probe</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Roast Time</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Rate of Rise</div>
+                </div>
+                <!-- Values row -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;">
+                    <div id="bean-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="env-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="roaster-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="air-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="air-temp-measured" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="roast-time" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">00:00</div>
+                    <div id="rate-of-rise" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">0°C/min</div>
+                </div>
+            </div>
         </div>
     </div>
     

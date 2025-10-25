@@ -514,6 +514,9 @@
                 const { data, error } = await supabase.auth.signUp({
                     email: email,
                     password: password,
+                    options: {
+                        emailRedirectTo: 'https://autoroaster.com/dashboard.html'
+                    }
                 });
                 
                 if (error) {

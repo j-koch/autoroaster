@@ -1,8 +1,8 @@
 bean_training:
   bean_hidden_dims:
   - 16
-  bean_variety: Hambela_Buliye
-  original_model_dir: models/kaleido/batched_sysid_20251014_155459
+  bean_variety: Guji
+  original_model_dir: models/kaleido/batched_sysid_20251022_203842
 export_info:
   exported_components:
   - state_estimator

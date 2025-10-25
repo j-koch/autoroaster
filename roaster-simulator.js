@@ -444,8 +444,12 @@ class RoasterSimulator {
     }
 
     /**
-     * Generate an idealized default background profile
-     * This creates a well-balanced reference profile that represents a good medium roast
+     * Generate the default background profile
+     * Uses the default waypoints defined in ProfileGenerator:
+     * - 0.0 min: 24°C (room temperature)
+     * - 0.5 min: 100°C (end of drying phase)
+     * - 5.0 min: 160°C (mid-development)
+     * - 10.0 min: 203°C (final temperature)
      */
     generateBackgroundProfile() {
         // Generate time array (10 minutes with 0.1 minute resolution)
@@ -454,54 +458,10 @@ class RoasterSimulator {
             times.push(t);
         }
         
-        // Create idealized profile using specific waypoints
-        // This represents a classic, well-balanced medium roast profile
-        const idealWaypoints = [
-            { time: 0, temp: 25 },      // Start at room temperature
-            { time: 1, temp: 100 },     // Quick initial heating (drying phase)
-            { time: 3, temp: 150 },     // Beginning of Maillard reactions
-            { time: 5.5, temp: 180 },   // Approaching first crack
-            { time: 7, temp: 200 },     // Through first crack
-            { time: 9, temp: 215 },     // Development phase
-            { time: 10, temp: 220 }     // Final temperature - medium roast
-        ];
+        // Use ProfileGenerator to create the default profile
+        this.backgroundProfile = ProfileGenerator.generateDefaultProfile(times);
         
-        // Interpolate between waypoints to create smooth profile
-        const temps = times.map(t => {
-            // Find surrounding waypoints
-            let i = 0;
-            while (i < idealWaypoints.length - 1 && idealWaypoints[i + 1].time < t) {
-                i++;
-            }
-            
-            if (i === idealWaypoints.length - 1) {
-                return idealWaypoints[i].temp;
-            }
-            
-            // Linear interpolation
-            const w1 = idealWaypoints[i];
-            const w2 = idealWaypoints[i + 1];
-            const fraction = (t - w1.time) / (w2.time - w1.time);
-            return w1.temp + fraction * (w2.temp - w1.temp);
-        });
-        
-        // Create profile object
-        this.backgroundProfile = {
-            times: times,
-            temps: temps,
-            metadata: {
-                name: 'Idealized Medium Roast',
-                description: 'Well-balanced reference profile for medium roast',
-                duration: 10,
-                startTemp: 25,
-                maxTemp: 220,
-                finalTemp: 220,
-                nWaypoints: idealWaypoints.length,
-                generated: new Date().toISOString()
-            }
-        };
-        
-        console.log('Generated idealized background profile:', this.backgroundProfile.metadata);
+        console.log('Generated default background profile:', this.backgroundProfile.metadata);
         
         // Add to chart
         this.addBackgroundProfileToChart();

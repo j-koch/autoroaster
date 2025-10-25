@@ -150,6 +150,94 @@ class ProfileGenerator {
     }
     
     /**
+     * Generate the default roast profile using predefined waypoints
+     * 
+     * Default waypoints (time in minutes, temp normalized):
+     * - 0.0 min: 0.24 (24°C) - Room temperature start
+     * - 0.5 min: 1.0 (100°C) - End of drying phase
+     * - 5.0 min: 1.6 (160°C) - Mid-development
+     * - 10.0 min: 2.03 (203°C) - Final temperature
+     * 
+     * @param {Array<number>} times - Time points in minutes for interpolation
+     * @returns {Object} - {times: Array, temps: Array, metadata: Object}
+     */
+    static generateDefaultProfile(times) {
+        // Define the default waypoints (time, temperature_normalized)
+        const waypoints = [
+            { time: 0.0, temp: 0.24 },   // 24°C - Room temperature
+            { time: 0.5, temp: 1.0 },    // 100°C - End of drying
+            { time: 5.0, temp: 1.7 },    // 160°C - Mid-development
+            { time: 10.0, temp: 2.03 }   // 203°C - Final temperature
+        ];
+        
+        // Interpolate temperatures at all requested time points
+        const tempsNormalized = times.map(t => {
+            // Find the surrounding waypoints for time t
+            let i = 0;
+            while (i < waypoints.length - 1 && waypoints[i + 1].time <= t) {
+                i++;
+            }
+            
+            // If we're past the last waypoint, hold the final temperature constant
+            if (i === waypoints.length - 1) {
+                return waypoints[i].temp;
+            }
+            
+            // If we're before the first waypoint, hold the initial temperature constant
+            if (t <= waypoints[0].time) {
+                return waypoints[0].temp;
+            }
+            
+            // Linear interpolation between waypoints[i] and waypoints[i+1]
+            const t1 = waypoints[i].time;
+            const t2 = waypoints[i + 1].time;
+            const T1 = waypoints[i].temp;
+            const T2 = waypoints[i + 1].temp;
+            
+            // Fraction of the way between the two waypoints
+            const fraction = (t - t1) / (t2 - t1);
+            
+            // Interpolated temperature (normalized)
+            return T1 + fraction * (T2 - T1);
+        });
+        
+        // Convert from normalized to Celsius (multiply by 100)
+        const tempsCelsius = tempsNormalized.map(t => t * 100);
+        
+        // Calculate metadata
+        const maxTemp = Math.max(...tempsCelsius);
+        const finalTemp = tempsCelsius[tempsCelsius.length - 1];
+        const duration = times[times.length - 1] - times[0];
+        
+        // Calculate maximum rate of rise (°C/min)
+        let maxRateOfRise = 0;
+        for (let i = 1; i < tempsCelsius.length; i++) {
+            const dt = times[i] - times[i-1];
+            if (dt > 0) {
+                const dT = tempsCelsius[i] - tempsCelsius[i-1];
+                const ror = dT / dt;
+                maxRateOfRise = Math.max(maxRateOfRise, ror);
+            }
+        }
+        
+        return {
+            times: times,
+            temps: tempsCelsius,
+            metadata: {
+                name: 'Default Roast Profile',
+                description: 'Standard roast profile: 24°C → 100°C (0.5min) → 160°C (5min) → 203°C (10min)',
+                duration: duration,
+                startTemp: tempsCelsius[0],
+                maxTemp: maxTemp,
+                finalTemp: finalTemp,
+                maxRateOfRise: maxRateOfRise,
+                waypoints: waypoints.length,
+                generated: new Date().toISOString()
+            }
+        };
+    }
+    
+    /**
      * Generate a template profile for common roast styles
      * 
      * @param {string} style - 'light', 'medium', or 'dark'

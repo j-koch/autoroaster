@@ -1,7 +1,7 @@
 controller_info:
   batched_version: true
-  controller_dir: controllers/mpc_batched_20251018_131448
-  sysid_model_dir: models/kaleido/batched_sysid_20251014_171448
+  controller_dir: controllers/mpc_batched_20251022_192713
+  sysid_model_dir: models/kaleido/batched_sysid_20251022_172658
 deployment_notes:
   description: Neural control policy trained with batched MPC
   input_format: Controller input vector combining forecast error, references, states,
@@ -19,21 +19,21 @@ loss_weights:
   smoothing_penalty: 100.0
 mpc_parameters:
   dstep: 2
-  n_horizon: 30
+  n_horizon: 60
   n_past_states: 10
-  n_samples: 15
+  n_samples: 30
 policy_network:
   hidden_dim: 256
   input_breakdown:
     current_state: 5
-    forecast_error: 15
-    future_reference: 15
+    forecast_error: 30
+    future_reference: 30
     historical_error: 10
     past_actions: 20
     past_states: 10
-    sampled_forecast: 15
-    total: 90
-  input_dim: 90
+    sampled_forecast: 30
+    total: 135
+  input_dim: 135
   min_fan: 0.2
   output_dim: 2
 robustness:

@@ -573,6 +573,7 @@
                         <thead>
                             <tr>
                                 <th>Date</th>
+                                <th>Roaster</th>
                                 <th>Origin</th>
                                 <th>Variety</th>
                                 <th>Process</th>
@@ -606,6 +607,17 @@
                             required
                         >
                         <div class="form-hint">Select an .alog file from your roaster</div>
+                    </div>
+                    
+                    <!-- Roaster -->
+                    <div class="form-group">
+                        <label for="roaster">Roaster</label>
+                        <input 
+                            type="text" 
+                            id="roaster" 
+                            placeholder="e.g., Kaleido M1, Aillio Bullet, etc."
+                        >
+                        <div class="form-hint">Optional: Specify which roaster was used</div>
                     </div>
                     
                     <!-- Origin and Variety -->
@@ -729,6 +741,16 @@
                 <form id="edit-form">
                     <!-- Hidden field to store roast ID -->
                     <input type="hidden" id="edit-roast-id">
+                    
+                    <!-- Roaster -->
+                    <div class="form-group">
+                        <label for="edit-roaster">Roaster</label>
+                        <input 
+                            type="text" 
+                            id="edit-roaster" 
+                            placeholder="e.g., Kaleido M1, Aillio Bullet, etc."
+                        >
+                    </div>
                     
                     <!-- Origin and Variety -->
                     <div class="form-row">
@@ -1081,6 +1103,7 @@
                 
                 row.innerHTML = `
                     <td>${formatDate(roast.roast_date)}</td>
+                    <td>${roast.roaster || 'N/A'}</td>
                     <td>${roast.origin || 'N/A'}</td>
                     <td>${roast.variety || 'N/A'}</td>
                     <td><span class="badge badge-process">${roast.process || 'N/A'}</span></td>
@@ -1187,6 +1210,7 @@
             }
             
             const formData = {
+                roaster: document.getElementById('roaster').value.trim() || null,
                 origin: document.getElementById('origin').value.trim(),
                 variety: document.getElementById('variety').value.trim(),
                 roastDate: document.getElementById('roast-date').value,
@@ -1228,6 +1252,7 @@
                             filename: file.name,
                             file_url: storagePath,  // Store the path within the bucket
                             upload_date: new Date().toISOString(),
+                            roaster: formData.roaster,
                             origin: formData.origin,
                             variety: formData.variety,
                             roast_date: formData.roastDate,
@@ -1284,6 +1309,7 @@
         function openEditModal(roast) {
             // Populate form fields with roast data
             document.getElementById('edit-roast-id').value = roast.id;
+            document.getElementById('edit-roaster').value = roast.roaster || '';
             document.getElementById('edit-origin').value = roast.origin || '';
             document.getElementById('edit-variety').value = roast.variety || '';
             document.getElementById('edit-roast-date').value = roast.roast_date || '';
@@ -1315,6 +1341,7 @@
             const roastId = document.getElementById('edit-roast-id').value;
             
             const updatedData = {
+                roaster: document.getElementById('edit-roaster').value.trim() || null,
                 origin: document.getElementById('edit-origin').value.trim(),
                 variety: document.getElementById('edit-variety').value.trim(),
                 roast_date: document.getElementById('edit-roast-date').value,

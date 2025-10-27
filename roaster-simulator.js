@@ -463,6 +463,12 @@ class RoasterSimulator {
         
         console.log('Generated default background profile:', this.backgroundProfile.metadata);
         
+        // Store target profile for game scoring
+        if (window.gameAPI) {
+            window.gameAPI.setTargetProfile(this.backgroundProfile.temps);
+            console.log('Target profile sent to game API');
+        }
+        
         // Add to chart
         this.addBackgroundProfileToChart();
     }
@@ -1107,6 +1113,11 @@ class RoasterSimulator {
             this.temperatureData.air.push(this.denormalizeTemperature(this.currentState[2])); // T_air (Air Temperature)
             this.temperatureData.airMeasured.push(this.denormalizeTemperature(this.currentState[4])); // T_atm (Measured Air Temperature)
             
+            // Update game with actual bean temperature for scoring
+            if (window.gameAPI && window.gameAPI.isRoasting()) {
+                window.gameAPI.updateActualProfile(currentBeanTemp);
+            }
+            
             // Calculate rate of rise (°C/min) for plotting
             // For the first data point, rate of rise is 0
             if (this.timeData.length === 1) {
@@ -1358,11 +1369,20 @@ class RoasterSimulator {
             ylimit = Math.max(200, maxTemp + 25);
         }
         
+        // Check game mode to determine forecast visibility
+        // In blind mode, hide forecasts. In lookahead mode, show forecasts.
+        const gameMode = window.gameAPI ? window.gameAPI.getGameMode() : 'lookahead';
+        const showForecast = gameMode === 'lookahead';
+        
         // Update temperature chart (including rate of rise on second y-axis, all forecasts, and background profile)
         const tempUpdate = {
             x: [
                 this.timeData, this.timeData, this.timeData, this.timeData, this.timeData,
-                this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time, this.forecastData.time,
+                showForecast ? this.forecastData.time : [], // Bean forecast (6th trace)
+                showForecast ? this.forecastData.time : [], // Surface forecast (7th trace)
+                showForecast ? this.forecastData.time : [], // Drum forecast (8th trace)
+                showForecast ? this.forecastData.time : [], // Air forecast (9th trace)
+                showForecast ? this.forecastData.time : [], // RoR forecast (10th trace)
                 this.backgroundProfile ? this.backgroundProfile.times : []  // Background profile (11th trace, index 10)
             ],
             y: [
@@ -1371,11 +1391,11 @@ class RoasterSimulator {
                 this.temperatureData.roaster,
                 this.temperatureData.air,
                 this.rateOfRiseData,           // Rate of rise (5th trace, second y-axis)
-                this.forecastData.bean,        // Bean forecast (6th trace)
-                this.forecastData.environment, // Surface forecast (7th trace)
-                this.forecastData.roaster,     // Drum forecast (8th trace)
-                this.forecastData.air,         // Air forecast (9th trace)
-                this.forecastData.rateOfRise,  // Rate of rise forecast (10th trace, second y-axis)
+                showForecast ? this.forecastData.bean : [],        // Bean forecast (6th trace)
+                showForecast ? this.forecastData.environment : [], // Surface forecast (7th trace)
+                showForecast ? this.forecastData.roaster : [],     // Drum forecast (8th trace)
+                showForecast ? this.forecastData.air : [],         // Air forecast (9th trace)
+                showForecast ? this.forecastData.rateOfRise : [],  // Rate of rise forecast (10th trace, second y-axis)
                 this.backgroundProfile ? this.backgroundProfile.temps : []  // Background profile (11th trace, index 10)
             ]
         };

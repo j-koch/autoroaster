@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoRoaster</title>
+    
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort.min.js"></script>
+    
+    <!-- Plotly.js for visualization -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    
+    <!-- Profile Generator -->
+    <script src="profile-generator.js"></script>
+    
+    <!-- Profile Editor -->
+    <script src="profile-editor.js"></script>
+    
+    <!-- Controllers -->
+    <script src="controllers.js"></script>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+            background-color: white;
+        }
+        
+        /* Left sidebar for controls and monitors */
+        .sidebar {
+            width: 350px;
+            background-color: #f9f9f9;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid #ddd;
+        }
+        
+        /* Main content area for charts */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #8B4513;
+            margin-bottom: 30px;
+            margin-top: 0;
+        }
+        
+        .controls-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .controls-section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #8B4513;
+            font-size: 18px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #8B4513;
+            cursor: pointer;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #8B4513;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .slider:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .slider:disabled::-webkit-slider-thumb {
+            background: #999;
+            cursor: not-allowed;
+        }
+        
+        .slider:disabled::-moz-range-thumb {
+            background: #999;
+            cursor: not-allowed;
+        }
+        
+        .value-display {
+            min-width: 60px;
+            text-align: center;
+            font-weight: bold;
+            color: #8B4513;
+            font-size: 14px;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background-color: #8B4513;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #A0522D;
+        }
+        
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+        
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #218838;
+        }
+        
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        
+        .btn-edit {
+            background-color: #6f42c1;
+            color: white;
+        }
+        
+        .btn-edit:hover {
+            background-color: #5a32a3;
+        }
+        
+        .status-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .status-section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #8B4513;
+            font-size: 18px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            font-size: 14px;
+            color: #666;
+            font-weight: bold;
+        }
+        
+        .status-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #8B4513;
+        }
+        
+        /* Temperature chart - larger */
+        .chart-container.temperature {
+            width: 100%;
+            height: 500px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        /* Control chart - shorter */
+        .chart-container.control {
+            width: 100%;
+            height: 250px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .roast-phase {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .phase-preheat {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .phase-charging {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .phase-roasting {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .phase-dropped {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        /* Overlay Modal Styles */
+        .info-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .info-overlay.hidden {
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .info-modal {
+            background-color: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+            margin: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .info-modal h1 {
+            color: #8B4513;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-align: center;
+            border-bottom: 2px solid #8B4513;
+            padding-bottom: 10px;
+        }
+        
+        .info-modal h2 {
+            color: #8B4513;
+            font-size: 18px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+        
+        .info-modal p {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .info-modal ul {
+            color: #333;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            padding-left: 20px;
+            font-size: 14px;
+        }
+        
+        .info-modal li {
+            margin-bottom: 8px;
+        }
+        
+        .info-modal .highlight {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #8B4513;
+            margin: 20px 0;
+            font-weight: bold;
+            color: #856404;
+        }
+        
+        .close-button {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .close-button:hover {
+            background-color: #f5f5f5;
+            color: #666;
+        }
+        
+        .get-started-button {
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: block;
+            margin: 25px auto 0;
+            transition: background-color 0.3s ease;
+        }
+        
+        .get-started-button:hover {
+            background-color: #A0522D;
+        }
+        
+        .tech-specs {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .workflow-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .workflow-step {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border-left: 4px solid #8B4513;
+        }
+        
+        .workflow-step h3 {
+            margin: 0 0 10px 0;
+            color: #8B4513;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .workflow-step p {
+            margin: 0;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* Mobile Hamburger Menu Styles */
+        .mobile-menu-toggle {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1001;
+            background-color: #8B4513;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 15px;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        .mobile-menu-toggle:active {
+            background-color: #A0522D;
+        }
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+            /* Show hamburger menu button on mobile */
+            .mobile-menu-toggle {
+                display: block;
+            }
+            
+            /* Adjust container layout for mobile - stack vertically */
+            .container {
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
+            }
+            
+            /* Sidebar becomes full-width and collapsible on mobile */
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #ddd;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1000;
+                background-color: #f9f9f9;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                overflow-y: auto;
+                padding-top: 60px; /* Space for hamburger menu */
+            }
+            
+            /* Show sidebar when active */
+            .sidebar.active {
+                transform: translateX(0);
+                box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+            }
+            
+            /* Main content takes full width on mobile */
+            .main-content {
+                width: 100%;
+                flex: 1;
+                padding: 15px;
+                padding-top: 60px; /* Space for hamburger menu */
+            }
+            
+            /* Adjust heading sizes for mobile */
+            h1 {
+                font-size: 24px;
+                margin-bottom: 20px;
+                padding-top: 10px;
+            }
+            
+            .controls-section h2,
+            .status-section h2 {
+                font-size: 16px;
+            }
+            
+            /* Increase touch target sizes for sliders */
+            .slider {
+                height: 8px;
+            }
+            
+            .slider::-webkit-slider-thumb {
+                width: 28px;
+                height: 28px;
+            }
+            
+            .slider::-moz-range-thumb {
+                width: 28px;
+                height: 28px;
+            }
+            
+            /* Larger buttons for easier tapping */
+            button {
+                padding: 14px 20px;
+                font-size: 16px;
+                min-height: 48px; /* Minimum touch target size */
+            }
+            
+            /* Adjust control groups for better spacing */
+            .control-group {
+                margin-bottom: 20px;
+            }
+            
+            .control-group label {
+                font-size: 15px;
+                margin-bottom: 8px;
+            }
+            
+            /* Better spacing for value displays */
+            .value-display {
+                min-width: 70px;
+                font-size: 15px;
+            }
+            
+            /* Adjust status display for mobile */
+            .status-item {
+                padding: 12px 0;
+            }
+            
+            .status-label {
+                font-size: 15px;
+            }
+            
+            .status-value {
+                font-size: 17px;
+            }
+            
+            /* Charts resize for mobile - shorter heights */
+            .chart-container.temperature {
+                height: 350px;
+                margin-bottom: 15px;
+            }
+            
+            .chart-container.control {
+                height: 200px;
+                margin-bottom: 15px;
+            }
+            
+            /* Info modal adjustments for mobile */
+            .info-modal {
+                max-width: 95%;
+                max-height: 90vh;
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .info-modal h1 {
+                font-size: 20px;
+                margin-bottom: 15px;
+            }
+            
+            .info-modal h2 {
+                font-size: 16px;
+                margin-top: 20px;
+            }
+            
+            .info-modal p,
+            .info-modal ul {
+                font-size: 14px;
+            }
+            
+            .workflow-steps {
+                grid-template-columns: 1fr;
+            }
+            
+            .workflow-step {
+                padding: 12px;
+            }
+            
+            .roast-phase {
+                font-size: 16px;
+                padding: 12px;
+            }
+            
+            /* Adjust sections padding for mobile */
+            .controls-section,
+            .status-section {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            /* Make select dropdowns more touch-friendly */
+            select {
+                min-height: 44px;
+                font-size: 16px;
+            }
+        }
+        
+        /* Extra small screens (phones in portrait) */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 20px;
+            }
+            
+            .chart-container.temperature {
+                height: 300px;
+            }
+            
+            .chart-container.control {
+                height: 180px;
+            }
+            
+            .info-modal {
+                padding: 15px;
+            }
+            
+            .info-modal h1 {
+                font-size: 18px;
+            }
+            
+            button {
+                font-size: 15px;
+            }
+        }
+        
+        /* Landscape orientation optimizations */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .main-content {
+                padding-top: 50px;
+            }
+            
+            .sidebar {
+                padding-top: 50px;
+            }
+            
+            .chart-container.temperature {
+                height: 280px;
+            }
+            
+            .chart-container.control {
+                height: 160px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Information Overlay Modal -->
+    <div id="info-overlay" class="info-overlay">
+        <div class="info-modal">
+            <button class="close-button" title="Close">&times;</button>
+            
+            <h1>AutoRoaster: A Coffee Roaster Digital Twin</h1>
+            
+            <h2>What's Happening Here?</h2>
+            <p>This is a data-driven digital twin of my Kaleido M1 sample roaster. It forecasts roaster and bean physics. You can interact with my virtual roaster in the same way you'd use the real one. This demo defaults to Ethiopian Guji beans, 24C ambient, 180C preheat, and 60% drum speed.</p>
+            
+            <h2>How to Use This Demo</h2>
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <h3>1. Setup</h3>
+                    <p>Adjust bean mass (50-200g) while idle</p>
+                </div>
+                <div class="workflow-step">
+                    <h3>2. Add Beans</h3>
+                    <p>Click "Add Beans" to charge the roaster</p>
+                </div>
+                <div class="workflow-step">
+                    <h3>3. Control</h3>
+                    <p>Adjust heater power and fan speed during roasting</p>
+                </div>
+                <div class="workflow-step">
+                    <h3>4. Monitor</h3>
+                    <p>Watch real-time temperature curves and rate of rise</p>
+                </div>
+            </div>
+            
+            <div class="highlight" style="margin-top: 30px; text-align: center;">
+                <h2 style="margin-top: 0; margin-bottom: 10px; font-size: 18px;">Get In Touch</h2>
+                <p style="margin-bottom: 0;">I can make you a Digital Twin of your roaster. Reach out at 
+                    <a href="mailto:james@autoroaster.com" style="color: #8B4513; text-decoration: none; font-weight: bold; border-bottom: 2px solid #8B4513;">james@autoroaster.com</a>
+                </p>
+            </div>
+            
+            <button class="get-started-button">Start Roasting!</button>
+        </div>
+    </div>
+    
+    <!-- Mobile Menu Toggle Button -->
+    <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle menu">
+        ☰
+    </button>
+    
+    <div class="container">
+        <!-- Left Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <h1>AutoRoaster</h1>
+            
+            <!-- Loading/Error Messages -->
+            <div id="loading" class="loading">Loading ONNX models...</div>
+            <div id="error" class="error" style="display: none;"></div>
+            
+            <!-- Roast Phase Indicator -->
+            <div id="roast-phase" class="roast-phase phase-preheat" style="display: none;">
+                PREHEATING
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button id="charge-btn" class="btn-success">Add Beans</button>
+                <button id="drop-btn" class="btn-danger" disabled>Stop</button>
+                <button id="reset-btn" class="btn-primary">Reset</button>
+                <button id="edit-profile-btn" class="btn-edit">✏️ Edit Profile</button>
+                <button id="info-button" class="btn-secondary" title="Show information about this demo">ℹ️ What's This?</button>
+            </div>
+            
+            <!-- Control Section -->
+            <div class="controls-section">
+                <h2>Controls</h2>
+                
+                <div class="control-group">
+                    <label for="control-mode-select">Control Mode</label>
+                    <select id="control-mode-select" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; width: 100%;">
+                        <option value="manual">Manual Control</option>
+                        <option value="pid">PID Controller</option>
+                        <option value="neural" disabled>AutoRoaster</option>
+                    </select>
+                </div>
+                
+                <!-- PID Tuning Section (hidden by default) -->
+                <div id="pid-tuning-section" style="display: none; margin-top: 15px; padding: 15px; background-color: #f8f9fa; border-radius: 6px; border-left: 3px solid #8B4513;">
+                    <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 14px; color: #8B4513;">Heater PID Tuning</h3>
+                    <p style="font-size: 11px; color: #666; margin-top: 0; margin-bottom: 12px;">
+                        PID controls heater only. Set fan speed manually below.
+                    </p>
+                    
+                    <div class="control-group" style="margin-top: 8px; margin-bottom: 8px;">
+                        <label for="heater-kp-slider" style="font-size: 12px;">Kp (Proportional)</label>
+                        <div class="slider-container">
+                            <input type="range" id="heater-kp-slider" class="slider" min="0" max="0.1" step="0.001" value="0.05">
+                            <span id="heater-kp-value" class="value-display" style="font-size: 12px;">0.050</span>
+                        </div>
+                    </div>
+                    <div class="control-group" style="margin-top: 8px; margin-bottom: 8px;">
+                        <label for="heater-ki-slider" style="font-size: 12px;">Ki (Integral)</label>
+                        <div class="slider-container">
+                            <input type="range" id="heater-ki-slider" class="slider" min="0" max="0.005" step="0.0001" value="0.001">
+                            <span id="heater-ki-value" class="value-display" style="font-size: 12px;">0.001</span>
+                        </div>
+                    </div>
+                    <div class="control-group" style="margin-top: 8px; margin-bottom: 0;">
+                        <label for="heater-kd-slider" style="font-size: 12px;">Kd (Derivative)</label>
+                        <div class="slider-container">
+                            <input type="range" id="heater-kd-slider" class="slider" min="0" max="0.02" step="0.001" value="0.005">
+                            <span id="heater-kd-value" class="value-display" style="font-size: 12px;">0.005</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="bean-model-select">Bean Model</label>
+                    <select id="bean-model-select" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; width: 100%;">
+                        <option value="bean_guji.onnx">Guji</option>
+                        <option value="bean_hambela_buliye.onnx">Hambela Buliye</option>
+                        <option value="bean_sakaro.onnx">Sakaro</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="heater-slider">Heater Power</label>
+                    <div class="slider-container">
+                        <input type="range" id="heater-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
+                        <span id="heater-value" class="value-display">50%</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="fan-slider">Fan Speed</label>
+                    <div class="slider-container">
+                        <input type="range" id="fan-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
+                        <span id="fan-value" class="value-display">50%</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="mass-slider">Bean Mass (g) <span id="mass-status" style="font-size: 12px; color: #666; font-weight: normal;"></span></label>
+                    <div class="slider-container">
+                        <input type="range" id="mass-slider" class="slider" min="50" max="200" step="5" value="150">
+                        <span id="mass-value" class="value-display">150g</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="ambient-slider">Ambient Temperature (°C)</label>
+                    <div class="slider-container">
+                        <input type="range" id="ambient-slider" class="slider" min="15" max="35" step="1" value="24">
+                        <span id="ambient-value" class="value-display">24°C</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label for="speedup-select">Simulation Speed</label>
+                    <select id="speedup-select" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 14px; width: 100%;">
+                        <option value="1">1x</option>
+                        <option value="2">2x</option>
+                        <option value="4">4x</option>
+                        <option value="8" selected>8x</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Temperature Chart -->
+            <div id="temperature-chart" class="chart-container temperature"></div>
+            
+            <!-- Control Chart -->
+            <div id="control-chart" class="chart-container control"></div>
+            
+            <!-- Status Display (transposed layout - horizontal) -->
+            <div class="status-section">
+                <h2>Status</h2>
+                <!-- Labels row -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 8px;">
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Bean Probe</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Bean Surface</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Drum</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Environment</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Env Probe</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Roast Time</div>
+                    <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Rate of Rise</div>
+                </div>
+                <!-- Values row -->
+                <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;">
+                    <div id="bean-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="env-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="roaster-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="air-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="air-temp-measured" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">25°C</div>
+                    <div id="roast-time" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">00:00</div>
+                    <div id="rate-of-rise" class="status-value" style="text-align: center; padding: 8px 4px; background-color: #f8f9fa; border-radius: 4px;">0°C/min</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="roaster-simulator.js"></script>
+
+    <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "74d285db4a5849b2907e5aa69d851f79"}'></script><!-- End Cloudflare Web Analytics -->
+</body>
+</html>

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Model Training - AutoRoaster</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .form-group input[type="number"] {
+            width: 150px;
+        }
+
+        .roast-selector {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        .roast-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .roast-item:hover {
+            background: #f8f9fa;
+        }
+
+        .roast-item.selected {
+            background: #e7f3ff;
+            border-color: #667eea;
+        }
+
+        .roast-item input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .roast-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .jobs-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .job-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.2s;
+        }
+
+        .job-card:hover {
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .job-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .job-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-pending { background: #ffeaa7; color: #856404; }
+        .status-running { background: #74b9ff; color: #004085; }
+        .status-completed { background: #55efc4; color: #155724; }
+        .status-failed { background: #ff7675; color: #721c24; }
+
+        .job-info {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .config-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .config-section h3 {
+            font-size: 14px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .inline-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Model Training</h1>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="window.location.href='dashboard.html'">
+                    ← Back to Dashboard
+                </button>
+                <button class="btn btn-secondary" onclick="signOut()">Sign Out</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Left Panel: Configure Training -->
+            <div class="panel">
+                <h2>Configure New Training Job</h2>
+                
+                <div class="form-group">
+                    <label>Job Name (Optional)</label>
+                    <input type="text" id="jobName" placeholder="e.g., Ethiopian Beans Model">
+                </div>
+
+                <div class="form-group">
+                    <label>Select Roast Files for Training</label>
+                    <div id="roastSelector" class="roast-selector">
+                        <div class="loading">Loading roasts...</div>
+                    </div>
+                    <div style="margin-top: 10px; font-size: 13px; color: #666;">
+                        <span id="selectedCount">0</span> roasts selected
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>Data Configuration</h3>
+                    <div class="inline-inputs">
+                        <div class="form-group">
+                            <label>Batch Size</label>
+                            <input type="number" id="batchSize" value="32" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Sequence Length</label>
+                            <input type="number" id="sequenceLength" value="60" min="10">
+                        </div>
+                    </div>
+                    <div class="inline-inputs">
+                        <div class="form-group">
+                            <label>Stride</label>
+                            <input type="number" id="stride" value="10" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Delay Horizon (seconds)</label>
+                            <input type="number" id="delayHorizon" value="300" min="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Delay Points</label>
+                        <input type="number" id="delayPoints" value="10" min="1">
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>Model Configuration</h3>
+                    <div class="inline-inputs">
+                        <div class="form-group">
+                            <label>Number of Latents</label>
+                            <input type="number" id="nLatents" value="5" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Estimator Hidden Dim</label>
+                            <input type="number" id="estimatorHidden" value="16" min="1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-section">
+                    <h3>Training Configuration</h3>
+                    <div class="inline-inputs">
+                        <div class="form-group">
+                            <label>Learning Rate</label>
+                            <input type="number" id="learningRate" value="0.001" min="0" step="0.0001">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Epochs</label>
+                            <input type="number" id="maxEpochs" value="1000" min="1">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Patience (Early Stopping)</label>
+                        <input type="number" id="patience" value="200" min="1">
+                    </div>
+                </div>
+
+                <div id="message"></div>
+
+                <button class="btn btn-primary" onclick="startTraining()" style="width: 100%; margin-top: 20px;">
+                    🚀 Start Training
+                </button>
+            </div>
+
+            <!-- Right Panel: Training Jobs -->
+            <div class="panel">
+                <h2>Training Jobs</h2>
+                <div id="jobsList" class="jobs-list">
+                    <div class="loading">Loading jobs...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Supabase
+        const SUPABASE_URL = 'https://iwjnsgjzbratogyiespi.supabase.co'; // e.g., 'https://xxxxx.supabase.co'
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml3am5zZ2p6YnJhdG9neWllc3BpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MTExMjEsImV4cCI6MjA3NTI4NzEyMX0.QmPziA27iNQ4ZXmptlm-hkrhy3JgknK5VsekYl7aCPQ'; // Your anon/public key
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let roasts = [];
+        let selectedRoastIds = new Set();
+
+        // Check authentication on page load
+        async function checkAuth() {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                window.location.href = 'login.html';
+                return null;
+            }
+            return session;
+        }
+
+        // Sign out
+        async function signOut() {
+            await supabase.auth.signOut();
+            window.location.href = 'login.html';
+        }
+
+        // Load available roasts
+        async function loadRoasts() {
+            try {
+                const { data, error } = await supabase
+                    .from('roasts')
+                    .select('*')
+                    .order('roast_date', { ascending: false });
+
+                if (error) throw error;
+
+                roasts = data;
+                displayRoasts();
+            } catch (error) {
+                console.error('Error loading roasts:', error);
+                document.getElementById('roastSelector').innerHTML = 
+                    '<div class="error-message">Failed to load roasts</div>';
+            }
+        }
+
+        // Display roasts for selection
+        function displayRoasts() {
+            const container = document.getElementById('roastSelector');
+            
+            if (roasts.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No roasts available. Upload roasts first.</div>';
+                return;
+            }
+
+            container.innerHTML = roasts.map(roast => `
+                <div class="roast-item ${selectedRoastIds.has(roast.id) ? 'selected' : ''}" 
+                     onclick="toggleRoast('${roast.id}')">
+                    <input type="checkbox" ${selectedRoastIds.has(roast.id) ? 'checked' : ''} 
+                           onclick="event.stopPropagation()">
+                    <strong>${roast.filename}</strong>
+                    <div class="roast-details">
+                        ${roast.variety || 'Unknown variety'} from ${roast.origin || 'Unknown origin'} 
+                        (${roast.process || 'Unknown process'})
+                        ${roast.roast_date ? ` • ${new Date(roast.roast_date).toLocaleDateString()}` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            updateSelectedCount();
+        }
+
+        // Toggle roast selection
+        function toggleRoast(roastId) {
+            if (selectedRoastIds.has(roastId)) {
+                selectedRoastIds.delete(roastId);
+            } else {
+                selectedRoastIds.add(roastId);
+            }
+            displayRoasts();
+        }
+
+        // Update selected count
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = selectedRoastIds.size;
+        }
+
+        // Start training
+        async function startTraining() {
+            const messageEl = document.getElementById('message');
+            messageEl.innerHTML = '';
+
+            // Validation
+            if (selectedRoastIds.size === 0) {
+                messageEl.innerHTML = '<div class="error-message">Please select at least one roast file</div>';
+                return;
+            }
+
+            try {
+                // Create configuration object
+                const config = {
+                    data: {
+                        batch_size: parseInt(document.getElementById('batchSize').value),
+                        sequence_length: parseInt(document.getElementById('sequenceLength').value),
+                        stride: parseInt(document.getElementById('stride').value),
+                        include_mass: true,
+                        include_dt: true,
+                        feature_sets: ['delayed_observables', 'delayed_inputs'],
+                        delay: {
+                            time_horizon: parseFloat(document.getElementById('delayHorizon').value),
+                            num_points: parseInt(document.getElementById('delayPoints').value)
+                        }
+                    },
+                    model: {
+                        n_latents: parseInt(document.getElementById('nLatents').value),
+                        roaster_type: 'drum',
+                        roaster_hidden_dims: [6, 6],
+                        estimator_hidden_dim: parseInt(document.getElementById('estimatorHidden').value)
+                    },
+                    training: {
+                        lr: parseFloat(document.getElementById('learningRate').value),
+                        max_epochs: parseInt(document.getElementById('maxEpochs').value),
+                        patience: parseInt(document.getElementById('patience').value),
+                        plot_interval: 10,
+                        estim_weight: 0.01,
+                        scheduler_factor: 0.7,
+                        scheduler_patience: 25,
+                        scheduler_min_lr: 0.000001
+                    }
+                };
+
+                // Create training job entry
+                const jobName = document.getElementById('jobName').value || 
+                               `Training Job ${new Date().toLocaleString()}`;
+
+                // Get current user
+                const { data: { user } } = await supabase.auth.getUser();
+                
+                if (!user) {
+                    throw new Error('Not authenticated');
+                }
+
+                const { data: job, error: jobError } = await supabase
+                    .from('training_jobs')
+                    .insert({
+                        user_id: user.id,  // Explicitly set user_id
+                        job_name: jobName,
+                        status: 'pending',
+                        config: config,
+                        roast_file_ids: Array.from(selectedRoastIds)
+                    })
+                    .select()
+                    .single();
+
+                if (jobError) throw jobError;
+
+                messageEl.innerHTML = '<div class="success-message">Training job created! Triggering Modal...</div>';
+
+                // Call Supabase Edge Function to trigger Modal
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                const response = await supabase.functions.invoke('trigger-training', {
+                    body: {
+                        jobId: job.id,
+                        roastFileIds: Array.from(selectedRoastIds),
+                        config: config
+                    }
+                });
+
+                if (response.error) throw response.error;
+
+                messageEl.innerHTML = '<div class="success-message">Training started successfully! Check the jobs panel for progress.</div>';
+                
+                // Reset form
+                selectedRoastIds.clear();
+                displayRoasts();
+                document.getElementById('jobName').value = '';
+                
+                // Reload jobs list
+                loadJobs();
+
+            } catch (error) {
+                console.error('Error starting training:', error);
+                messageEl.innerHTML = `<div class="error-message">Failed to start training: ${error.message}</div>`;
+            }
+        }
+
+        // Load training jobs
+        async function loadJobs() {
+            try {
+                const { data, error } = await supabase
+                    .from('training_jobs')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+
+                if (error) throw error;
+
+                displayJobs(data);
+            } catch (error) {
+                console.error('Error loading jobs:', error);
+                document.getElementById('jobsList').innerHTML = 
+                    '<div class="error-message">Failed to load jobs</div>';
+            }
+        }
+
+        // Display training jobs
+        function displayJobs(jobs) {
+            const container = document.getElementById('jobsList');
+            
+            if (jobs.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No training jobs yet</div>';
+                return;
+            }
+
+            container.innerHTML = jobs.map(job => {
+                const progress = job.loss_history ? 
+                    Math.round((job.loss_history.total?.length || 0) / job.config.training.max_epochs * 100) : 0;
+                
+                return `
+                    <div class="job-card">
+                        <div class="job-header">
+                            <div class="job-name">${job.job_name || 'Unnamed Job'}</div>
+                            <div class="job-status status-${job.status}">${job.status.toUpperCase()}</div>
+                        </div>
+                        <div class="job-info">
+                            📁 ${job.roast_file_ids.length} roast files
+                        </div>
+                        <div class="job-info">
+                            🗓️ ${new Date(job.created_at).toLocaleString()}
+                        </div>
+                        ${job.status === 'running' ? `
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: ${progress}%">
+                                    ${progress}%
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${job.status === 'completed' ? `
+                            <div class="job-info" style="color: #28a745;">
+                                ✓ Completed in ${job.duration_seconds}s • Final loss: ${job.loss_history?.total?.slice(-1)[0]?.toFixed(4) || 'N/A'}
+                            </div>
+                        ` : ''}
+                        ${job.status === 'failed' ? `
+                            <div class="error-message">
+                                ${job.error_message || 'Training failed'}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Refresh jobs periodically
+        function startJobsRefresh() {
+            setInterval(() => {
+                loadJobs();
+            }, 10000); // Refresh every 10 seconds
+        }
+
+        // Initialize
+        (async () => {
+            const session = await checkAuth();
+            if (session) {
+                await loadRoasts();
+                await loadJobs();
+                startJobsRefresh();
+            }
+        })();
+    </script>
+</body>
+</html>

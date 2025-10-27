@@ -465,13 +465,15 @@ async function simulationStep() {
         gameState.actualProfile.push(temps.beanSurface);
         
         // Calculate rate of rise (°C/min) for bean probe temperature
+        // Clamp to zero minimum (never show negative RoR)
         if (gameState.tempData.beanProbe.length > 1) {
             const prevTemp = gameState.tempData.beanProbe[gameState.tempData.beanProbe.length - 2];
             const prevTime = gameState.timeData[gameState.timeData.length - 2];
             const timeDiff = currentTimeMin - prevTime;
             const tempDiff = temps.beanProbe - prevTemp;
             const ror = timeDiff > 0 ? tempDiff / timeDiff : 0;
-            gameState.rateOfRiseData.push(ror);
+            // Clamp to minimum of 0 (don't show negative RoR values)
+            gameState.rateOfRiseData.push(Math.max(0, ror));
         } else {
             gameState.rateOfRiseData.push(0);
         }
@@ -970,7 +972,13 @@ function initializeChart() {
     const layout = {
         title: 'Temperature Profile',
         xaxis: { title: 'Time (minutes)', range: [0, 10] },
-        yaxis: { title: 'Temperature (°C)' },  // Let y-axis autoscale
+        yaxis: { title: 'Temperature (°C)' },  // Primary y-axis (left) for temperature
+        yaxis2: {
+            title: 'Rate of Rise (°C/min)',
+            overlaying: 'y',
+            side: 'right',  // Secondary y-axis (right) for RoR
+            rangemode: 'tozero'  // Force minimum to be zero (no negative values)
+        },
         showlegend: true,
         margin: { t: 50, r: 50, b: 50, l: 50 }
     };
@@ -1065,6 +1073,15 @@ function initializeChart() {
             name: 'Target Profile',
             line: { color: 'rgba(139, 69, 19, 0.4)', width: 3, dash: 'dashdot' },
             mode: 'lines'
+        },
+        // Rate of Rise (index 11) - using secondary y-axis
+        {
+            x: [],
+            y: [],
+            name: 'Rate of Rise',
+            line: { color: '#FF1493', width: 2 },
+            mode: 'lines',
+            yaxis: 'y2'
         }
     ];
     
@@ -1110,6 +1127,7 @@ function updateChart() {
     // Traces 0-4: actual temperatures
     // Traces 5-9: forecast temperatures (shown only in lookahead mode)
     // Trace 10: target profile (static)
+    // Trace 11: Rate of Rise (RoR)
     Plotly.restyle('temperature-chart', {
         x: [
             gameState.timeData,                          // 0: Bean Probe
@@ -1121,7 +1139,9 @@ function updateChart() {
             showForecast ? gameState.forecastData.time : [],  // 6: Surface Forecast
             showForecast ? gameState.forecastData.time : [],  // 7: Drum Forecast
             showForecast ? gameState.forecastData.time : [],  // 8: Air Forecast
-            showForecast ? gameState.forecastData.time : []   // 9: Air Meas Forecast
+            showForecast ? gameState.forecastData.time : [],  // 9: Air Meas Forecast
+            [],                                          // 10: Target (static, no update needed)
+            gameState.timeData                           // 11: Rate of Rise
         ],
         y: [
             gameState.tempData.beanProbe,                              // 0: Bean Probe
@@ -1133,9 +1153,11 @@ function updateChart() {
             showForecast ? gameState.forecastData.beanSurface : [],    // 6: Surface Forecast
             showForecast ? gameState.forecastData.drum : [],           // 7: Drum Forecast
             showForecast ? gameState.forecastData.air : [],            // 8: Air Forecast
-            showForecast ? gameState.forecastData.airMeasured : []     // 9: Air Meas Forecast
+            showForecast ? gameState.forecastData.airMeasured : [],    // 9: Air Meas Forecast
+            [],                                                        // 10: Target (static, no update needed)
+            gameState.rateOfRiseData                                   // 11: Rate of Rise
         ]
-    }, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    }, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     
     // Add vertical line at current time to mark forecast boundary
     const currentTimeMinutes = gameState.timeData.length > 0 ? gameState.timeData[gameState.timeData.length - 1] : 0;

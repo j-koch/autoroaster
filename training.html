@@ -180,6 +180,13 @@
         .job-name {
             font-weight: 600;
             color: #333;
+            flex: 1;
+        }
+
+        .job-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
 
         .job-status {
@@ -187,6 +194,39 @@
             border-radius: 12px;
             font-size: 12px;
             font-weight: 500;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-terminate {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .btn-terminate:hover {
+            background: #ffb300;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        .btn-small:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .status-pending { background: #ffeaa7; color: #856404; }
@@ -601,7 +641,17 @@
                     <div class="job-card">
                         <div class="job-header">
                             <div class="job-name">${job.job_name || 'Unnamed Job'}</div>
-                            <div class="job-status status-${job.status}">${job.status.toUpperCase()}</div>
+                            <div class="job-actions">
+                                <div class="job-status status-${job.status}">${job.status.toUpperCase()}</div>
+                                ${(job.status === 'running' || job.status === 'pending') ? `
+                                    <button class="btn-small btn-terminate" onclick="terminateJob('${job.id}', '${(job.job_name || 'this job').replace(/'/g, "\\'")}')">
+                                        ⏹️ Stop
+                                    </button>
+                                ` : ''}
+                                <button class="btn-small btn-delete" onclick="deleteJob('${job.id}', '${(job.job_name || 'this job').replace(/'/g, "\\'")}')">
+                                    🗑️ Delete
+                                </button>
+                            </div>
                         </div>
                         <div class="job-info">
                             📁 ${job.roast_file_ids.length} roast files
@@ -629,6 +679,83 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        // Terminate a running training job
+        async function terminateJob(jobId, jobName) {
+            // Confirm termination with the user
+            if (!confirm(`Are you sure you want to stop "${jobName}"?\n\nThis will terminate the running training job on Modal.`)) {
+                return;
+            }
+
+            try {
+                // Call Supabase Edge Function to terminate the Modal job
+                const response = await supabase.functions.invoke('terminate-training', {
+                    body: { jobId: jobId }
+                });
+
+                if (response.error) {
+                    throw new Error(response.error.message || 'Failed to terminate job');
+                }
+
+                // Show success message briefly
+                const jobsList = document.getElementById('jobsList');
+                const successMsg = document.createElement('div');
+                successMsg.className = 'success-message';
+                successMsg.textContent = `Successfully terminated "${jobName}"`;
+                successMsg.style.marginBottom = '10px';
+                jobsList.insertBefore(successMsg, jobsList.firstChild);
+                
+                // Remove success message after 3 seconds
+                setTimeout(() => {
+                    successMsg.remove();
+                }, 3000);
+
+                // Reload the jobs list to reflect the termination
+                await loadJobs();
+
+            } catch (error) {
+                console.error('Error terminating job:', error);
+                alert(`Failed to terminate job: ${error.message}`);
+            }
+        }
+
+        // Delete a training job from the database
+        async function deleteJob(jobId, jobName) {
+            // Confirm deletion with the user
+            if (!confirm(`Are you sure you want to delete "${jobName}"?\n\nThis action cannot be undone. The job record and associated data will be permanently removed.`)) {
+                return;
+            }
+
+            try {
+                // Delete the job from the database
+                const { error } = await supabase
+                    .from('training_jobs')
+                    .delete()
+                    .eq('id', jobId);
+
+                if (error) throw error;
+
+                // Show success message briefly
+                const jobsList = document.getElementById('jobsList');
+                const successMsg = document.createElement('div');
+                successMsg.className = 'success-message';
+                successMsg.textContent = `Successfully deleted "${jobName}"`;
+                successMsg.style.marginBottom = '10px';
+                jobsList.insertBefore(successMsg, jobsList.firstChild);
+                
+                // Remove success message after 3 seconds
+                setTimeout(() => {
+                    successMsg.remove();
+                }, 3000);
+
+                // Reload the jobs list to reflect the deletion
+                await loadJobs();
+
+            } catch (error) {
+                console.error('Error deleting job:', error);
+                alert(`Failed to delete job: ${error.message}`);
+            }
         }
 
         // Refresh jobs periodically

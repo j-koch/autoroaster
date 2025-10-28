@@ -588,8 +588,14 @@
             }
 
             container.innerHTML = jobs.map(job => {
-                const progress = job.loss_history ? 
-                    Math.round((job.loss_history.total?.length || 0) / job.config.training.max_epochs * 100) : 0;
+                // Calculate progress based on loss_history
+                let progress = 0;
+                
+                if (job.loss_history && job.loss_history.total && job.loss_history.total.length > 0) {
+                    const currentEpoch = job.loss_history.total.length;
+                    const maxEpochs = job.config?.training?.max_epochs || 1000;
+                    progress = Math.round((currentEpoch / maxEpochs) * 100);
+                }
                 
                 return `
                     <div class="job-card">
@@ -603,7 +609,7 @@
                         <div class="job-info">
                             🗓️ ${new Date(job.created_at).toLocaleString()}
                         </div>
-                        ${job.status === 'running' ? `
+                        ${job.status === 'running' && progress > 0 ? `
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: ${progress}%">
                                     ${progress}%

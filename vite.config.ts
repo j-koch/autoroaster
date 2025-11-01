@@ -3,8 +3,8 @@ import { resolve } from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  // GitHub Pages serves from /autoroaster/ subdirectory
-  base: '/autoroaster/',
+  // Custom domain (autoroaster.com) serves from root
+  base: '/',
   
   // Build configuration
   build: {

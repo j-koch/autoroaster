@@ -20,15 +20,6 @@ import type {
 } from './types';
 
 /**
- * ProfileGenerator - external dependency (from profile-generator.js)
- * This will need to be migrated separately
- */
-declare const ProfileGenerator: {
-  generateDefaultProfile(times: number[]): BackgroundProfile;
-  generateRandomProfile(times: number[]): BackgroundProfile;
-};
-
-/**
  * Plotly - external charting library
  */
 declare const Plotly: any;
@@ -39,9 +30,6 @@ declare const Plotly: any;
 declare global {
   interface Window {
     simulator?: RoasterSimulator;
-    profileEditor?: {
-      open(profile: BackgroundProfile | null): void;
-    };
     gameAPI?: {
       setTargetProfile(temps: number[]): void;
       isRoasting(): boolean;
@@ -374,18 +362,7 @@ export class RoasterSimulator {
     document.getElementById('drop-btn')?.addEventListener('click', () => this.dropBeans());
     document.getElementById('reset-btn')?.addEventListener('click', () => this.reset());
     
-    // Profile management button
-    const editProfileBtn = document.getElementById('edit-profile-btn');
-    if (editProfileBtn) {
-      editProfileBtn.addEventListener('click', () => {
-        // Open the interactive profile editor
-        if (window.profileEditor) {
-          window.profileEditor.open(this.backgroundProfile);
-        } else {
-          alert('Profile editor not loaded. Please refresh the page.');
-        }
-      });
-    }
+    // Note: Profile editor button removed from UI
     
     // Initialize charts
     this.initializeCharts();
@@ -606,26 +583,69 @@ export class RoasterSimulator {
 
   /**
    * Generate the default background profile
-   * Uses the default waypoints defined in ProfileGenerator:
+   * Creates a simple linear interpolation between waypoints:
    * - 0.0 min: 24°C (room temperature)
    * - 0.5 min: 100°C (end of drying phase)
    * - 5.0 min: 160°C (mid-development)
    * - 10.0 min: 203°C (final temperature)
    */
   private generateBackgroundProfile(): void {
+    // Define waypoints for default profile
+    const waypoints = [
+      { time: 0.0, temp: 24 },
+      { time: 0.5, temp: 100 },
+      { time: 5.0, temp: 160 },
+      { time: 10.0, temp: 203 }
+    ];
+    
     // Generate time array (10 minutes with 0.1 minute resolution)
     const times: number[] = [];
+    const temps: number[] = [];
+    
     for (let t = 0; t <= 10; t += 0.1) {
       times.push(t);
+      
+      // Find surrounding waypoints for interpolation
+      let temp = waypoints[0].temp;
+      for (let i = 0; i < waypoints.length - 1; i++) {
+        if (t >= waypoints[i].time && t <= waypoints[i + 1].time) {
+          // Linear interpolation between waypoints
+          const t1 = waypoints[i].time;
+          const t2 = waypoints[i + 1].time;
+          const T1 = waypoints[i].temp;
+          const T2 = waypoints[i + 1].temp;
+          const fraction = (t - t1) / (t2 - t1);
+          temp = T1 + fraction * (T2 - T1);
+          break;
+        }
+      }
+      // If beyond last waypoint, use last waypoint temp
+      if (t > waypoints[waypoints.length - 1].time) {
+        temp = waypoints[waypoints.length - 1].temp;
+      }
+      temps.push(temp);
     }
     
-    // Use ProfileGenerator to create the default profile
-    this.backgroundProfile = ProfileGenerator.generateDefaultProfile(times);
+    this.backgroundProfile = {
+      times,
+      temps,
+      metadata: {
+        name: 'Default Profile',
+        description: 'Default roasting profile with standard waypoints',
+        duration: 10.0,
+        startTemp: 24,
+        maxTemp: 203,
+        finalTemp: 203,
+        maxRateOfRise: 20,
+        nSegments: waypoints.length,
+        generated: new Date().toISOString()
+      }
+    };
     
-    console.log('Generated default background profile:', this.backgroundProfile.metadata);
+    console.log('Generated default background profile');
     
-    // Store target profile for game scoring
-    if (window.gameAPI) {
+    // Store target profile for game scoring (if gameAPI exists)
+    if (window.gameAPI && window.gameAPI.setTargetProfile && this.backgroundProfile) {
       window.gameAPI.setTargetProfile(this.backgroundProfile.temps);
       console.log('Target profile sent to game API');
     }
@@ -811,26 +831,20 @@ export class RoasterSimulator {
   }
   
   /**
-   * Regenerate background profile with a new random profile
+   * Regenerate background profile (currently just regenerates the same default profile)
    * Updates the chart trace with new data
    */
   regenerateBackgroundProfile(): void {
-    // Generate time array (same as before)
-    const times: number[] = [];
-    for (let t = 0; t <= 10; t += 0.1) {
-      times.push(t);
-    }
-    
-    // Generate new random profile
-    this.backgroundProfile = ProfileGenerator.generateRandomProfile(times);
-    
-    console.log('Regenerated background profile:', this.backgroundProfile.metadata);
+    // Regenerate the default profile
+    this.generateBackgroundProfile();
     
     // Update the chart trace (trace index 10)
-    Plotly.restyle('temperature-chart', {
-      x: [this.backgroundProfile.times],
-      y: [this.backgroundProfile.temps]
-    }, [10]);  // Update trace at index 10
+    if (this.backgroundProfile) {
+      Plotly.restyle('temperature-chart', {
+        x: [this.backgroundProfile.times],
+        y: [this.backgroundProfile.temps]
+      }, [10]);  // Update trace at index 10
+    }
   }
   
   /**

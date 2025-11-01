@@ -12,8 +12,7 @@
  * that has learned to optimize control actions over a prediction horizon.
  */
 
-import * as ort from 'onnxruntime-web';
-import type { 
+import type {
   ControllerOutput, 
   NeuralControllerConfig, 
   NeuralControllerParams 

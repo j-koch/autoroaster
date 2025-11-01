@@ -6,7 +6,6 @@
  * simulation using the trained neural network models.
  */
 
-import * as ort from 'onnxruntime-web';
 import { PIDController } from '../controllers/PIDController';
 import { NeuralController } from '../controllers/NeuralController';
 import type {

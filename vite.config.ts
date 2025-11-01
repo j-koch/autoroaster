@@ -28,8 +28,6 @@ export default defineConfig({
     open: true
   },
   
-  // Optimize dependencies
-  optimizeDeps: {
-    exclude: ['onnxruntime-web']
-  }
+  // No special dependency optimization needed since ONNX Runtime is loaded via CDN
+  optimizeDeps: {}
 });

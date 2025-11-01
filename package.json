@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
-    "onnxruntime-web": "^1.16.3",
     "plotly.js-dist-min": "^2.26.0"
   },
   "devDependencies": {
     "@types/plotly.js": "^2.12.29",
+    "onnxruntime-web": "^1.16.3",
     "typescript": "^5.3.3",
     "vite": "^5.4.21"
   }

@@ -6,7 +6,6 @@
  * a virtual roaster in real-time.
  */
 
-import * as ort from 'onnxruntime-web';
 import { RoasterSimulator } from '../../simulator/RoasterSimulator';
 
 /**

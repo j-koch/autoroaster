@@ -7,7 +7,6 @@
  */
 
 import { RoasterSimulator } from './simulator/RoasterSimulator';
-import * as ort from 'onnxruntime-web';
 
 /**
  * Main initialization function

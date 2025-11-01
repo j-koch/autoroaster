@@ -271,21 +271,21 @@ body {
     cursor: not-allowed;
 }
 
-/* Two-Column Layout */
+/* Two-Row Layout - Table on top, plots on bottom */
 .roast-history-container {
     display: grid;
-    grid-template-columns: 2fr 3fr;  /* 40/60 split - table gets 40%, viz gets 60% */
+    grid-template-rows: 2fr 3fr;  /* 40/60 split - table gets 40%, viz gets 60% */
     gap: 20px;
     height: calc(100vh - 200px);
 }
 
 .table-column {
-    overflow-y: auto;  /* Vertical scrolling */
+    overflow-y: auto;  /* Vertical scrolling for table */
     overflow-x: auto;  /* Horizontal scrolling for wide tables */
 }
 
 .viz-column {
-    overflow-y: auto;
+    overflow-y: auto;  /* Allow scrolling if charts are tall */
 }
 
 /* Roast History */
@@ -708,7 +708,8 @@ body {
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s ease;
-    width: 100%;
+    width: auto;  /* Changed from 100% to auto for compact sizing */
+    min-width: 200px;  /* Minimum width for readability */
 }
 
 .btn-visualize-selected:hover:not(:disabled) {
@@ -819,8 +820,12 @@ input[type="checkbox"] {
 /* Responsive */
 @media (max-width: 1200px) {
     .roast-history-container {
-        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;  /* Stack rows with auto height on smaller screens */
         height: auto;
+    }
+    
+    .table-column {
+        min-height: 400px;
     }
     
     .viz-column {

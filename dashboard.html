@@ -61,6 +61,13 @@
                     <div class="roast-history">
                         <h2>Your Roast History</h2>
                         
+                        <!-- Visualize Selected Button -->
+                        <div class="visualize-actions" id="visualize-actions" style="display: none;">
+                            <button id="visualize-selected" class="btn-visualize-selected" title="Visualize selected roasts">
+                                📊 Visualize Selected (<span id="selection-count">0</span>)
+                            </button>
+                        </div>
+                        
                         <!-- Filter and Sort Controls -->
                         <div id="filter-controls" class="filter-controls" style="display: none;">
                             <div class="filter-row">
@@ -117,13 +124,6 @@
                             <div class="empty-state-icon">☕</div>
                             <h3>No Roasts Yet</h3>
                             <p>Upload your first roast to get started!</p>
-                        </div>
-                        
-                        <!-- Visualize Selected Button -->
-                        <div class="visualize-actions" id="visualize-actions" style="display: none;">
-                            <button id="visualize-selected" class="btn-visualize-selected" title="Visualize selected roasts">
-                                📊 Visualize Selected (<span id="selection-count">0</span>)
-                            </button>
                         </div>
                         
                         <!-- Table Container -->

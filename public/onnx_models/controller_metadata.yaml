@@ -1,0 +1,47 @@
+controller_info:
+  batched_version: true
+  controller_dir: controllers/mpc_batched_20251022_192713
+  sysid_model_dir: models/kaleido/batched_sysid_20251022_172658
+deployment_notes:
+  description: Neural control policy trained with batched MPC
+  input_format: Controller input vector combining forecast error, references, states,
+    and history
+  output_format: '[fan, heat] control signals in range [0, 1]'
+  usage: Requires preprocessing input features at each timestep, including forecast
+    generation from dynamics model
+export_info:
+  onnx_opset_version: 11
+  pytorch_version: !!python/object/new:torch.torch_version.TorchVersion
+  - 2.2.2
+loss_weights:
+  fan_penalty: 0.0
+  overshoot_penalty: 0.01
+  smoothing_penalty: 100.0
+mpc_parameters:
+  dstep: 2
+  n_horizon: 60
+  n_past_states: 10
+  n_samples: 30
+policy_network:
+  hidden_dim: 256
+  input_breakdown:
+    current_state: 5
+    forecast_error: 30
+    future_reference: 30
+    historical_error: 10
+    past_actions: 20
+    past_states: 10
+    sampled_forecast: 30
+    total: 135
+  input_dim: 135
+  min_fan: 0.2
+  output_dim: 2
+robustness:
+  bean_perturbation: 0.01
+  latent_noise_scale: 0.01
+  model_perturbation: 0.001
+training_info:
+  batch_size: 50
+  learning_rate: 0.001
+  n_episodes: 500
+  t_end: 12.0

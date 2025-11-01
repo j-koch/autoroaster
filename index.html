@@ -11,14 +11,11 @@
     <!-- Plotly.js for visualization -->
     <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
     
-    <!-- Profile Generator -->
+    <!-- Profile Generator (legacy - will be migrated) -->
     <script src="profile-generator.js"></script>
     
-    <!-- Profile Editor -->
+    <!-- Profile Editor (legacy - will be migrated) -->
     <script src="profile-editor.js"></script>
-    
-    <!-- Controllers -->
-    <script src="controllers.js"></script>
     
     <style>
         body {
@@ -911,7 +908,8 @@
         </div>
     </div>
     
-    <script src="roaster-simulator.js"></script>
+    <!-- Main TypeScript entry point -->
+    <script type="module" src="/src/main.ts"></script>
 
     <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "74d285db4a5849b2907e5aa69d851f79"}'></script><!-- End Cloudflare Web Analytics -->
 </body>

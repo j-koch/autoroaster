@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# ONNX Runtime WASM files (loaded from CDN instead)
+public/onnx-wasm/
+
+# IP
+pipeline/
+supabase/
+
+# Environment variables (contains API keys and secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python (for your pipeline/)
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Temporary files
+*.tmp
+.cache/
+
+# Vibe coding output:
+*.md

@@ -9,12 +9,6 @@
 import { RoasterSimulator } from './simulator/RoasterSimulator';
 import * as ort from 'onnxruntime-web';
 
-// Configure ONNX Runtime to load WASM files from CDN in production
-// In development, Vite serves them from public/onnx-wasm/
-if (import.meta.env.PROD) {
-  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/';
-}
-
 /**
  * Main initialization function
  * Creates the simulator instance and loads models
@@ -27,10 +21,13 @@ async function main(): Promise<void> {
     // This ensures the modal controls work immediately
     setupInfoOverlay();
     
-    // Configure ONNX Runtime Web
-    // Use CDN for WASM files to avoid Vite bundling issues
-    ort.env.wasm.numThreads = 1; // Disable multi-threading to avoid WASM issues
-    ort.env.wasm.simd = true; // Enable SIMD for better performance
+    // Configure ONNX Runtime Web BEFORE any model loading
+    // Use CDN for WASM files to avoid bundling issues
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/';
+    ort.env.wasm.numThreads = 1; // Disable multi-threading for compatibility
+    ort.env.wasm.simd = true; // Enable SIMD for performance
+    
+    console.log('ONNX Runtime WASM path configured:', ort.env.wasm.wasmPaths);
     
     // Create simulator instance
     // The constructor automatically sets up all UI event listeners

@@ -116,6 +116,8 @@ body {
     margin: 0 auto;
     padding: 30px 20px;
     width: 100%; /* Ensure it uses full available width */
+    overflow-y: auto; /* Make the main container scrollable */
+    height: calc(100vh - 60px); /* Full height minus navbar */
 }
 
 /* View Tabs */
@@ -274,18 +276,16 @@ body {
 /* Two-Row Layout - Table on top, plots on bottom */
 .roast-history-container {
     display: grid;
-    grid-template-rows: 2fr 3fr;  /* 40/60 split - table gets 40%, viz gets 60% */
+    grid-template-rows: auto auto;  /* Auto height based on content */
     gap: 20px;
-    height: calc(100vh - 200px);
 }
 
 .table-column {
-    overflow-y: auto;  /* Vertical scrolling for table */
-    overflow-x: auto;  /* Horizontal scrolling for wide tables */
+    /* No height or overflow constraints on the column itself */
 }
 
 .viz-column {
-    overflow-y: auto;  /* Allow scrolling if charts are tall */
+    min-height: 600px;  /* Minimum height for visualization section */
 }
 
 /* Roast History */
@@ -294,10 +294,8 @@ body {
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: 100%;
     display: flex;
     flex-direction: column;
-    overflow: hidden;  /* Prevent overflow from this container */
 }
 
 .roast-history h2 {
@@ -352,10 +350,11 @@ body {
 
 /* Roast Table */
 .table-container {
-    flex: 1;
-    overflow: auto;  /* Enable scrolling for the table */
     margin-top: 10px;  /* Reduced from 20px to 10px */
     position: relative;  /* For scroll indicator positioning */
+    max-height: 200px;  /* Fixed height for table scrolling */
+    overflow-y: auto;  /* Vertical scrolling for table */
+    overflow-x: auto;  /* Horizontal scrolling for wide tables */
 }
 
 /* Simple scroll indicator - subtle gradient with arrow */
@@ -740,9 +739,9 @@ body {
     padding-right: 0;  /* Remove right padding to allow charts to extend fully */
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    height: 100%;
     display: flex;
     flex-direction: column;
+    min-height: 600px;  /* Ensure panel has minimum height */
 }
 
 .viz-panel h3 {
@@ -770,11 +769,10 @@ body {
 }
 
 #viz-panel-charts {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 20px;
-    overflow-y: auto;
+    height: 800px;  /* Set explicit height so flex ratios work properly */
 }
 
 .chart-panel {
@@ -785,20 +783,16 @@ body {
 }
 
 /* Ensure individual chart divs fill their containers */
-/* Temperature chart gets 70% of the space */
+/* Temperature chart gets 60% of the space */
 #temp-chart {
     width: 100%;
-    height: 100%;
-    flex: 7;  /* 70% of space */
-    min-height: 400px;
+    height: 480px;  /* 60% of 800px */
 }
 
-/* Control chart gets 30% of the space */
+/* Control chart gets 40% of the space */
 #control-chart {
     width: 100%;
-    height: 100%;
-    flex: 3;  /* 30% of space */
-    min-height: 200px;
+    height: 320px;  /* 40% of 800px */
 }
 
 /* Checkbox styling */
@@ -946,7 +940,7 @@ input[type="checkbox"] {
 
 .testbed-container {
     display: flex;
-    height: calc(100vh - 200px);
+    min-height: 800px;  /* Minimum height instead of fixed height */
     background-color: white;
 }
 
@@ -954,8 +948,8 @@ input[type="checkbox"] {
     width: 350px;
     background-color: #f9f9f9;
     padding: 20px;
-    overflow-y: auto;
     border-right: 1px solid #ddd;
+    flex-shrink: 0;  /* Prevent sidebar from shrinking */
 }
 
 .testbed-sidebar h1 {
@@ -979,7 +973,6 @@ input[type="checkbox"] {
     background: white;
     display: flex;
     flex-direction: column;
-    overflow: hidden;  /* Prevent scrolling, let charts fill space */
 }
 
 .model-section {
@@ -1231,12 +1224,11 @@ input[type="checkbox"] {
 
 /* Testbed charts container (merged like dashboard) */
 #testbed-charts-container {
-    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 20px;
-    overflow-y: auto;
     margin-bottom: 20px;
+    min-height: 650px;  /* Ensure charts have minimum height */
 }
 
 /* Testbed chart panels */

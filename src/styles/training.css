@@ -279,6 +279,36 @@ body {
     font-size: 18px;
 }
 
+/* Model Type Filters */
+.model-type-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.model-type-filter-btn {
+    padding: 8px 16px;
+    background: #f8f9fa;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    color: #666;
+    transition: all 0.3s ease;
+}
+
+.model-type-filter-btn:hover {
+    background: #e9ecef;
+}
+
+.model-type-filter-btn.active {
+    background: white;
+    border-color: #8B4513;
+    color: #8B4513;
+}
+
 /* Model List */
 .models-list {
     flex: 1;

@@ -5,4 +5,5 @@
  */
 
 export { RoasterSimulator } from './RoasterSimulator';
+export { TestbedSimulator } from './TestbedSimulator';
 export * from './types';

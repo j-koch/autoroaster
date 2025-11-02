@@ -55,6 +55,13 @@
                         <div class="models-panel">
                             <h2>Your Models</h2>
                             
+                            <!-- Model Type Filters -->
+                            <div class="model-type-filters">
+                                <button class="model-type-filter-btn active" data-model-type="all">All Models</button>
+                                <button class="model-type-filter-btn" data-model-type="roaster">Roaster Models</button>
+                                <button class="model-type-filter-btn" data-model-type="bean">Bean Models</button>
+                            </div>
+                            
                             <!-- Filter Controls -->
                             <div id="model-filter-controls" class="filter-controls" style="display: none;">
                                 <div class="filter-row">
@@ -136,9 +143,36 @@
                         <div class="config-panel">
                             <h2>Configure New Training Job</h2>
                             
+                            <!-- Training Type Selection -->
+                            <div class="form-group">
+                                <label>Training Type</label>
+                                <select id="trainingType">
+                                    <option value="system_id">System ID Model (Roaster Physics)</option>
+                                    <option value="bean">Bean Model (Bean Thermal Properties)</option>
+                                </select>
+                                <small>System ID models learn roaster dynamics. Bean models learn bean-specific thermal properties using a pre-trained System ID model.</small>
+                            </div>
+                            
                             <div class="form-group">
                                 <label>Job Name (Optional)</label>
                                 <input type="text" id="jobName" placeholder="e.g., Ethiopian Beans Model">
+                            </div>
+                            
+                            <!-- Bean Training Specific Fields (hidden by default) -->
+                            <div id="beanTrainingFields" style="display: none;">
+                                <div class="form-group">
+                                    <label>Select System ID Model <span style="color: #d32f2f;">*</span></label>
+                                    <select id="sysidModelSelect">
+                                        <option value="">Loading models...</option>
+                                    </select>
+                                    <small>The pre-trained roaster model to use as a base</small>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Bean Variety <span style="color: #d32f2f;">*</span></label>
+                                    <input type="text" id="beanVariety" placeholder="e.g., Sakaro, Guji, Hambela Buliye">
+                                    <small>Name of the bean variety (must match roast metadata)</small>
+                                </div>
                             </div>
 
                             <!-- Roast Selection Section -->

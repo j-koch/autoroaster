@@ -354,7 +354,7 @@ body {
 .table-container {
     flex: 1;
     overflow: auto;  /* Enable scrolling for the table */
-    margin-top: 20px;
+    margin-top: 10px;  /* Reduced from 20px to 10px */
     position: relative;  /* For scroll indicator positioning */
 }
 
@@ -641,9 +641,9 @@ body {
 /* Filter Controls */
 .filter-controls {
     background: #f8f9fa;
-    padding: 20px;
+    padding: 15px;
     border-radius: 6px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;  /* Reduced from 20px to 10px */
 }
 
 .filter-row {
@@ -693,29 +693,34 @@ body {
     background-color: #5a6268;
 }
 
-/* Visualize Selected Button */
-.visualize-actions {
-    margin-bottom: 15px;
+/* Actions Header with Button */
+.actions-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
 }
 
+/* Visualize Selected Button in Header */
 .btn-visualize-selected {
     background-color: #667eea;
     color: white;
     border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-size: 14px;
+    padding: 6px 12px;  /* Smaller padding for header button */
+    border-radius: 4px;
+    font-size: 12px;  /* Smaller font for header */
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s ease;
-    width: auto;  /* Changed from 100% to auto for compact sizing */
-    min-width: 200px;  /* Minimum width for readability */
+    white-space: nowrap;
+    flex-shrink: 0;  /* Prevent button from shrinking */
 }
 
 .btn-visualize-selected:hover:not(:disabled) {
     background-color: #5568d3;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
 .btn-visualize-selected:disabled {
@@ -940,32 +945,41 @@ input[type="checkbox"] {
    ================================ */
 
 .testbed-container {
-    display: grid;
-    grid-template-columns: 350px 1fr;
-    gap: 20px;
+    display: flex;
     height: calc(100vh - 200px);
+    background-color: white;
 }
 
 .testbed-sidebar {
-    background: white;
+    width: 350px;
+    background-color: #f9f9f9;
     padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
+    border-right: 1px solid #ddd;
+}
+
+.testbed-sidebar h1 {
+    text-align: center;
+    color: #8B4513;
+    margin-bottom: 30px;
+    margin-top: 0;
+    font-size: 28px;
 }
 
 .testbed-sidebar h2 {
     color: #8B4513;
     margin-bottom: 20px;
-    font-size: 20px;
+    font-size: 18px;
+    margin-top: 0;
 }
 
 .testbed-main {
-    background: white;
+    flex: 1;
     padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    overflow-y: auto;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;  /* Prevent scrolling, let charts fill space */
 }
 
 .model-section {
@@ -1062,12 +1076,17 @@ input[type="checkbox"] {
 
 /* Testbed simulator interface styles */
 .roast-phase {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: bold;
     text-align: center;
-    padding: 12px;
+    padding: 10px;
     border-radius: 6px;
     margin-bottom: 20px;
+}
+
+.phase-preheat {
+    background-color: #fff3cd;
+    color: #856404;
 }
 
 .phase-charging {
@@ -1075,8 +1094,19 @@ input[type="checkbox"] {
     color: #155724;
 }
 
+.phase-roasting {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.phase-dropped {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
 .button-group {
     display: flex;
+    flex-direction: column;
     gap: 10px;
     margin-bottom: 20px;
 }
@@ -1123,10 +1153,18 @@ input[type="checkbox"] {
 }
 
 .controls-section {
-    background: #f8f9fa;
+    margin-bottom: 30px;
     padding: 20px;
+    background-color: white;
     border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.controls-section h2 {
+    margin-top: 0;
     margin-bottom: 20px;
+    color: #8B4513;
+    font-size: 18px;
 }
 
 .controls-section h3 {
@@ -1189,26 +1227,46 @@ input[type="checkbox"] {
     font-size: 14px;
 }
 
-.chart-container.temperature {
-    width: 100%;
-    height: 400px;
+/* Chart containers removed - now using chart-panel like dashboard */
+
+/* Testbed charts container (merged like dashboard) */
+#testbed-charts-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
     margin-bottom: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
 }
 
-.chart-container.control {
+/* Testbed chart panels */
+#testbed-temperature-chart {
     width: 100%;
-    height: 250px;
-    margin-bottom: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
+    height: 100%;
+    flex: 6;  /* 60% of space - temperature chart */
+    min-height: 350px;
+}
+
+#testbed-control-chart {
+    width: 100%;
+    height: 100%;
+    flex: 4;  /* 40% of space - control chart */
+    min-height: 250px;
 }
 
 .status-section {
-    background: #f8f9fa;
+    flex-shrink: 0;  /* Don't shrink, maintain size */
     padding: 20px;
+    background-color: white;
     border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.status-section h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #8B4513;
+    font-size: 18px;
 }
 
 .status-section h3 {
@@ -1241,11 +1299,44 @@ input[type="checkbox"] {
 /* Responsive testbed */
 @media (max-width: 1200px) {
     .testbed-container {
-        grid-template-columns: 1fr;
+        flex-direction: column;
         height: auto;
     }
     
     .testbed-sidebar {
-        margin-bottom: 20px;
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .chart-container.temperature {
+        height: 350px;
+    }
+    
+    .chart-container.control {
+        height: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .testbed-sidebar h1 {
+        font-size: 24px;
+    }
+    
+    .chart-container.temperature {
+        height: 300px;
+    }
+    
+    .chart-container.control {
+        height: 180px;
+    }
+    
+    .status-section h2 {
+        font-size: 16px;
+    }
+    
+    .button-group button {
+        padding: 14px 20px;
+        font-size: 16px;
     }
 }

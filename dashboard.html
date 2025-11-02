@@ -61,13 +61,6 @@
                     <div class="roast-history">
                         <h2>Your Roast History</h2>
                         
-                        <!-- Visualize Selected Button -->
-                        <div class="visualize-actions" id="visualize-actions" style="display: none;">
-                            <button id="visualize-selected" class="btn-visualize-selected" title="Visualize selected roasts">
-                                📊 Visualize Selected (<span id="selection-count">0</span>)
-                            </button>
-                        </div>
-                        
                         <!-- Filter and Sort Controls -->
                         <div id="filter-controls" class="filter-controls" style="display: none;">
                             <div class="filter-row">
@@ -140,7 +133,15 @@
                                         <th>Charge</th>
                                         <th>Final</th>
                                         <th>Uploaded</th>
-                                        <th>Actions</th>
+                                        <th>
+                                            <div class="actions-header">
+                                                <span>Actions</span>
+                                                <!-- Visualize Selected Button in header -->
+                                                <button id="visualize-selected" class="btn-visualize-selected" title="Visualize selected roasts" style="display: none;">
+                                                    📊 Visualize (<span id="selection-count">0</span>)
+                                                </button>
+                                            </div>
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody id="roast-table-body">
@@ -181,174 +182,133 @@
         <!-- Digital Testbed View -->
         <div id="testbed-view" class="view">
             <div class="testbed-container">
-                <!-- Left Column: Model Selection -->
+                <!-- Left Sidebar: Controls and Model Selection -->
                 <div class="testbed-sidebar">
-                    <h2>Model Selection</h2>
+                    <h1>Digital Testbed</h1>
                     
-                    <!-- Loading State -->
-                    <div id="testbed-loading" class="loading">
+                    <!-- Loading/Error Messages -->
+                    <div id="testbed-loading" class="loading" style="display: none;">
                         <div class="loading-spinner"></div>
                         <div>Loading ONNX models...</div>
                     </div>
-                    
-                    <!-- Error Display -->
                     <div id="testbed-error" class="error" style="display: none;"></div>
                     
-                    <!-- Model Selection Form -->
-                    <div id="testbed-controls" style="display: none;">
-                        <!-- Roaster Model Selection -->
-                        <div class="model-section">
-                            <h3>Roaster Model <span class="required">*</span></h3>
-                            <p class="section-hint">Select the roaster physics model</p>
-                            <div class="form-group">
-                                <select id="testbed-roaster-model" class="model-select">
-                                    <option value="roast_stepper.onnx">Kaleido M1</option>
-                                </select>
+                    <!-- Roast Phase Indicator -->
+                    <div id="testbed-phase" class="roast-phase phase-preheat" style="display: none;">
+                        PREHEATING
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="button-group" id="testbed-action-buttons" style="display: none;">
+                        <button id="testbed-charge-btn" class="btn-success">Add Beans</button>
+                        <button id="testbed-drop-btn" class="btn-danger" disabled>Stop</button>
+                        <button id="testbed-reset-btn" class="btn-primary">Reset</button>
+                    </div>
+                    
+                    <!-- Control Section -->
+                    <div class="controls-section" id="testbed-controls-section" style="display: none;">
+                        <h2>Controls</h2>
+                        
+                        <div class="control-group">
+                            <label for="testbed-heater-slider">Heater Power</label>
+                            <div class="slider-container">
+                                <input type="range" id="testbed-heater-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
+                                <span id="testbed-heater-value" class="value-display">50%</span>
                             </div>
                         </div>
                         
-                        <!-- Bean Model Selection -->
-                        <div class="model-section">
-                            <h3>Bean Model <span class="required">*</span></h3>
-                            <p class="section-hint">Select the bean thermal model</p>
-                            <div class="form-group">
-                                <select id="testbed-bean-model" class="model-select">
-                                    <option value="bean_guji.onnx">Guji</option>
-                                    <option value="bean_hambela_buliye.onnx">Hambela Buliye</option>
-                                    <option value="bean_sakaro.onnx">Sakaro</option>
-                                </select>
+                        <div class="control-group">
+                            <label for="testbed-fan-slider">Fan Speed</label>
+                            <div class="slider-container">
+                                <input type="range" id="testbed-fan-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
+                                <span id="testbed-fan-value" class="value-display">50%</span>
                             </div>
                         </div>
                         
-                        <!-- Controller Model Selection -->
-                        <div class="model-section">
-                            <h3>Controller <span class="optional">(optional)</span></h3>
-                            <p class="section-hint">Select AI controller or manual control</p>
-                            <div class="form-group">
-                                <select id="testbed-controller-model" class="model-select">
-                                    <option value="manual">Manual Control</option>
-                                    <option value="pid">PID Controller</option>
-                                    <option value="control_policy.onnx">AutoRoaster AI</option>
-                                </select>
+                        <div class="control-group">
+                            <label for="testbed-mass-slider">Bean Mass (g) <span id="testbed-mass-status" style="font-size: 12px; color: #666; font-weight: normal;"></span></label>
+                            <div class="slider-container">
+                                <input type="range" id="testbed-mass-slider" class="slider" min="50" max="200" step="5" value="150">
+                                <span id="testbed-mass-value" class="value-display">150g</span>
                             </div>
                         </div>
                         
-                        <!-- Action Buttons -->
-                        <div class="testbed-actions">
-                            <button id="testbed-load-btn" class="btn-primary">
-                                Load Models
-                            </button>
-                            <button id="testbed-reset-btn" class="btn-secondary" style="display: none;">
-                                Reset Simulation
-                            </button>
-                        </div>
-                        
-                        <!-- Status Info -->
-                        <div id="testbed-status" class="testbed-status" style="display: none;">
-                            <div class="status-badge status-ready">
-                                <span class="status-icon">✓</span>
-                                <span>Models Loaded</span>
+                        <div class="control-group">
+                            <label for="testbed-ambient-slider">Ambient Temperature (°C)</label>
+                            <div class="slider-container">
+                                <input type="range" id="testbed-ambient-slider" class="slider" min="15" max="35" step="1" value="24">
+                                <span id="testbed-ambient-value" class="value-display">24°C</span>
                             </div>
                         </div>
+                        
+                        <div class="control-group">
+                            <label for="testbed-speedup-select">Simulation Speed</label>
+                            <select id="testbed-speedup-select" class="control-select">
+                                <option value="1">1x</option>
+                                <option value="2">2x</option>
+                                <option value="4">4x</option>
+                                <option value="8" selected>8x</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Model Selection Section (shown initially) -->
+                    <div class="controls-section" id="testbed-model-selection">
+                        <h2>Model Selection</h2>
+                        <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                            Select your trained roaster and bean models to begin simulation
+                        </p>
+                        
+                        <div class="control-group">
+                            <label for="testbed-roaster-model">Roaster System ID Model <span class="required">*</span></label>
+                            <select id="testbed-roaster-model" class="model-select">
+                                <option value="">-- Select from trained models --</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="testbed-bean-model-initial">Bean Model <span class="required">*</span></label>
+                            <select id="testbed-bean-model-initial" class="model-select">
+                                <option value="">-- Select from trained models --</option>
+                            </select>
+                        </div>
+                        
+                        <button id="testbed-load-btn" class="btn-primary">
+                            Load Models & Start
+                        </button>
                     </div>
                 </div>
                 
-                <!-- Right Column: Simulator Interface -->
+                <!-- Main Content Area -->
                 <div class="testbed-main">
-                    <div id="testbed-simulator" style="display: none;">
-                        <!-- Roast Phase Indicator -->
-                        <div id="testbed-phase" class="roast-phase phase-charging">
-                            IDLE - Roaster Preheated to 180°C
+                    <!-- Charts Container (merged like dashboard) -->
+                    <div id="testbed-charts-container" style="display: none; flex: 1; display: flex; flex-direction: column; gap: 20px;">
+                        <div id="testbed-temperature-chart" class="chart-panel"></div>
+                        <div id="testbed-control-chart" class="chart-panel"></div>
+                    </div>
+                    
+                    <!-- Status Display -->
+                    <div class="status-section" id="testbed-status-section" style="display: none;">
+                        <h2>Status</h2>
+                        <!-- Labels row -->
+                        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 8px;">
+                            <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Bean Probe</div>
+                            <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Bean Surface</div>
+                            <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Drum</div>
+                            <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Environment</div>
+                            <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Env Probe</div>
+                            <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Roast Time</div>
+                            <div class="status-label" style="text-align: center; border-bottom: none; padding: 8px 4px;">Rate of Rise</div>
                         </div>
-                        
-                        <!-- Action Buttons -->
-                        <div class="button-group">
-                            <button id="testbed-charge-btn" class="btn-success">Add Beans</button>
-                            <button id="testbed-drop-btn" class="btn-danger" disabled>Stop</button>
-                        </div>
-                        
-                        <!-- Control Section -->
-                        <div class="controls-section">
-                            <h3>Controls</h3>
-                            
-                            <div class="control-group">
-                                <label for="testbed-heater-slider">Heater Power</label>
-                                <div class="slider-container">
-                                    <input type="range" id="testbed-heater-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
-                                    <span id="testbed-heater-value" class="value-display">50%</span>
-                                </div>
-                            </div>
-                            
-                            <div class="control-group">
-                                <label for="testbed-fan-slider">Fan Speed</label>
-                                <div class="slider-container">
-                                    <input type="range" id="testbed-fan-slider" class="slider" min="0" max="1" step="0.01" value="0.5">
-                                    <span id="testbed-fan-value" class="value-display">50%</span>
-                                </div>
-                            </div>
-                            
-                            <div class="control-group">
-                                <label for="testbed-mass-slider">Bean Mass (g)</label>
-                                <div class="slider-container">
-                                    <input type="range" id="testbed-mass-slider" class="slider" min="50" max="200" step="5" value="150">
-                                    <span id="testbed-mass-value" class="value-display">150g</span>
-                                </div>
-                            </div>
-                            
-                            <div class="control-group">
-                                <label for="testbed-ambient-slider">Ambient Temperature (°C)</label>
-                                <div class="slider-container">
-                                    <input type="range" id="testbed-ambient-slider" class="slider" min="15" max="35" step="1" value="24">
-                                    <span id="testbed-ambient-value" class="value-display">24°C</span>
-                                </div>
-                            </div>
-                            
-                            <div class="control-group">
-                                <label for="testbed-speedup-select">Simulation Speed</label>
-                                <select id="testbed-speedup-select" class="control-select">
-                                    <option value="1">1x</option>
-                                    <option value="2">2x</option>
-                                    <option value="4">4x</option>
-                                    <option value="8" selected>8x</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <!-- Temperature Chart -->
-                        <div id="testbed-temperature-chart" class="chart-container temperature"></div>
-                        
-                        <!-- Control Chart -->
-                        <div id="testbed-control-chart" class="chart-container control"></div>
-                        
-                        <!-- Status Display -->
-                        <div class="status-section">
-                            <h3>Status</h3>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
-                                <div class="status-item">
-                                    <div class="status-label">Bean Probe</div>
-                                    <div id="testbed-bean-temp" class="status-value">25°C</div>
-                                </div>
-                                <div class="status-item">
-                                    <div class="status-label">Bean Surface</div>
-                                    <div id="testbed-env-temp" class="status-value">25°C</div>
-                                </div>
-                                <div class="status-item">
-                                    <div class="status-label">Drum</div>
-                                    <div id="testbed-roaster-temp" class="status-value">25°C</div>
-                                </div>
-                                <div class="status-item">
-                                    <div class="status-label">Environment</div>
-                                    <div id="testbed-air-temp" class="status-value">25°C</div>
-                                </div>
-                                <div class="status-item">
-                                    <div class="status-label">Roast Time</div>
-                                    <div id="testbed-roast-time" class="status-value">00:00</div>
-                                </div>
-                                <div class="status-item">
-                                    <div class="status-label">Rate of Rise</div>
-                                    <div id="testbed-rate-of-rise" class="status-value">0°C/min</div>
-                                </div>
-                            </div>
+                        <!-- Values row -->
+                        <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px;">
+                            <div id="testbed-bean-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: white; border-radius: 4px;">25°C</div>
+                            <div id="testbed-env-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: white; border-radius: 4px;">25°C</div>
+                            <div id="testbed-roaster-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: white; border-radius: 4px;">25°C</div>
+                            <div id="testbed-air-temp" class="status-value" style="text-align: center; padding: 8px 4px; background-color: white; border-radius: 4px;">25°C</div>
+                            <div id="testbed-air-temp-measured" class="status-value" style="text-align: center; padding: 8px 4px; background-color: white; border-radius: 4px;">25°C</div>
+                            <div id="testbed-roast-time" class="status-value" style="text-align: center; padding: 8px 4px; background-color: white; border-radius: 4px;">00:00</div>
+                            <div id="testbed-rate-of-rise" class="status-value" style="text-align: center; padding: 8px 4px; background-color: white; border-radius: 4px;">0°C/min</div>
                         </div>
                     </div>
                     
@@ -356,7 +316,7 @@
                     <div id="testbed-empty" class="testbed-empty-state">
                         <div class="empty-icon">🧪</div>
                         <h3>Digital Testbed</h3>
-                        <p>Select your models and click "Load Models" to begin simulation</p>
+                        <p>Select your trained models from the sidebar to begin simulation</p>
                     </div>
                 </div>
             </div>

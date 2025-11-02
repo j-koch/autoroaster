@@ -106,6 +106,9 @@ let allJobs: TrainingJob[] = [];            // All training jobs
 let currentJobFilter: string = 'all';       // Current job status filter
 let selectedModelId: string | null = null;   // Currently selected model for inspection
 let expandedJobIds = new Set<string>();      // Track which jobs are currently expanded
+let sysidModels: TrainingJob[] = [];         // Available system ID models for bean training
+let currentTrainingType: 'system_id' | 'bean' = 'system_id'; // Current training type
+let currentModelTypeFilter: 'all' | 'roaster' | 'bean' = 'all'; // Current model type filter
 
 // ========================================
 // AUTHENTICATION
@@ -174,6 +177,39 @@ function initTabSwitching(): void {
 // ========================================
 
 /**
+ * Determine if a model is a roaster or bean model based on its configuration
+ * Bean models have bean_hidden_dims in their config, roaster models don't
+ * @param model - The training job (model) to check
+ * @returns 'roaster' or 'bean'
+ */
+function getModelType(model: TrainingJob): 'roaster' | 'bean' {
+    // Check if config has bean_hidden_dims property (bean model)
+    // Bean models have a simplified config structure
+    if ((model.config as any).bean_hidden_dims) {
+        return 'bean';
+    }
+    // Check if config has the full roaster model structure
+    if (model.config.model && model.config.data) {
+        return 'roaster';
+    }
+    // Default to roaster for backward compatibility
+    return 'roaster';
+}
+
+/**
+ * Filter models based on the current model type filter
+ * @param models - Array of all models
+ * @returns Filtered array of models
+ */
+function filterModelsByType(models: TrainingJob[]): TrainingJob[] {
+    if (currentModelTypeFilter === 'all') {
+        return models;
+    }
+    
+    return models.filter(model => getModelType(model) === currentModelTypeFilter);
+}
+
+/**
  * Load all completed training jobs as models
  * Models are training jobs with status 'completed'
  */
@@ -196,7 +232,10 @@ async function loadModels(): Promise<void> {
         
         if (error) throw error;
         
-        const models = data as TrainingJob[];
+        const allModels = data as TrainingJob[];
+        
+        // Apply model type filter
+        const models = filterModelsByType(allModels);
         
         if (models.length === 0) {
             if (loadingEl) loadingEl.style.display = 'none';
@@ -330,6 +369,87 @@ function displayModelInspection(model: TrainingJob): void {
         // Build the inspection HTML
         const finalLoss = model.loss_history?.total?.slice(-1)[0];
         const numEpochs = model.loss_history?.total?.length || 0;
+        const modelType = getModelType(model);
+        
+        // Build config section based on model type
+        let configSectionHTML = '';
+        
+        if (modelType === 'bean') {
+            // Bean model - simpler config structure
+            const beanConfig = model.config as any;
+            configSectionHTML = `
+                <div class="detail-section">
+                    <h4>Model Configuration</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Model Type</div>
+                            <div class="detail-value">Bean Model</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Bean Hidden Dims</div>
+                            <div class="detail-value">${beanConfig.bean_hidden_dims ? JSON.stringify(beanConfig.bean_hidden_dims) : 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Learning Rate</div>
+                            <div class="detail-value">${beanConfig.training?.lr || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Max Epochs</div>
+                            <div class="detail-value">${beanConfig.training?.max_epochs || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Patience</div>
+                            <div class="detail-value">${beanConfig.training?.patience || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Scheduler Factor</div>
+                            <div class="detail-value">${beanConfig.training?.scheduler_factor || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Roaster model - full config structure
+            configSectionHTML = `
+                <div class="detail-section">
+                    <h4>Model Configuration</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Model Type</div>
+                            <div class="detail-value">Roaster Model (System ID)</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Latent Dimensions</div>
+                            <div class="detail-value">${model.config.model?.n_latents || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Roaster Type</div>
+                            <div class="detail-value">${model.config.model?.roaster_type || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Estimator Hidden Dim</div>
+                            <div class="detail-value">${model.config.model?.estimator_hidden_dim || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Batch Size</div>
+                            <div class="detail-value">${model.config.data?.batch_size || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Sequence Length</div>
+                            <div class="detail-value">${model.config.data?.sequence_length || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Learning Rate</div>
+                            <div class="detail-value">${model.config.training?.lr || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Max Epochs</div>
+                            <div class="detail-value">${model.config.training?.max_epochs || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
         
         detailsEl.innerHTML = `
             <div class="detail-section">
@@ -362,35 +482,7 @@ function displayModelInspection(model: TrainingJob): void {
                 </div>
             </div>
             
-            <div class="detail-section">
-                <h4>Model Configuration</h4>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <div class="detail-label">Latent Dimensions</div>
-                        <div class="detail-value">${model.config.model.n_latents}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Roaster Type</div>
-                        <div class="detail-value">${model.config.model.roaster_type}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Estimator Hidden Dim</div>
-                        <div class="detail-value">${model.config.model.estimator_hidden_dim}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Batch Size</div>
-                        <div class="detail-value">${model.config.data.batch_size}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Sequence Length</div>
-                        <div class="detail-value">${model.config.data.sequence_length}</div>
-                    </div>
-                    <div class="detail-item">
-                        <div class="detail-label">Learning Rate</div>
-                        <div class="detail-value">${model.config.training.lr}</div>
-                    </div>
-                </div>
-            </div>
+            ${configSectionHTML}
             
             <div class="detail-section">
                 <h4>Loss History</h4>
@@ -701,6 +793,208 @@ function initRoastFilters(): void {
 }
 
 // ========================================
+// BEAN TRAINING SUPPORT
+// ========================================
+
+/**
+ * Load available System ID models for bean training
+ * These are completed training jobs with system ID models
+ */
+async function loadSysidModels(): Promise<void> {
+    try {
+        // Query for completed training jobs (these are potential system ID models)
+        // For now, we'll use all completed jobs, but in the future we could add a model_type field
+        const { data, error } = await supabase
+            .from('training_jobs')
+            .select('*')
+            .eq('status', 'completed')
+            .order('completed_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        sysidModels = data as TrainingJob[];
+        populateSysidModelSelect();
+        
+    } catch (error: any) {
+        console.error('Error loading system ID models:', error);
+        const select = document.getElementById('sysidModelSelect') as HTMLSelectElement;
+        if (select) {
+            select.innerHTML = '<option value="">Error loading models</option>';
+        }
+    }
+}
+
+/**
+ * Populate the System ID model selector dropdown
+ */
+function populateSysidModelSelect(): void {
+    const select = document.getElementById('sysidModelSelect') as HTMLSelectElement;
+    if (!select) return;
+    
+    if (sysidModels.length === 0) {
+        select.innerHTML = '<option value="">No system ID models available</option>';
+        return;
+    }
+    
+    select.innerHTML = '<option value="">Select a system ID model...</option>' +
+        sysidModels.map(model => {
+            const modelName = model.job_name || 'Unnamed Model';
+            const date = new Date(model.completed_at!).toLocaleDateString();
+            return `<option value="${model.id}">${modelName} (${date})</option>`;
+        }).join('');
+}
+
+/**
+ * Handle training type change
+ * Shows/hides bean-specific fields based on selection
+ */
+function handleTrainingTypeChange(): void {
+    const trainingTypeSelect = document.getElementById('trainingType') as HTMLSelectElement;
+    if (!trainingTypeSelect) return;
+    
+    const trainingType = trainingTypeSelect.value as 'system_id' | 'bean';
+    currentTrainingType = trainingType;
+    
+    const beanTrainingFields = document.getElementById('beanTrainingFields');
+    const dataConfigSection = document.querySelector('.config-section') as HTMLDetailsElement;
+    const modelConfigSection = document.querySelectorAll('.config-section')[1] as HTMLDetailsElement;
+    const lossConfigSection = document.querySelectorAll('.config-section')[2] as HTMLDetailsElement;
+    
+    if (trainingType === 'bean') {
+        // Show bean-specific fields
+        if (beanTrainingFields) {
+            beanTrainingFields.style.display = 'block';
+        }
+        
+        // Hide system ID configuration sections (they're frozen for bean training)
+        // Only show basic training configuration
+        if (dataConfigSection) dataConfigSection.style.display = 'none';
+        if (modelConfigSection) modelConfigSection.style.display = 'none';
+        if (lossConfigSection) lossConfigSection.style.display = 'none';
+        
+    } else {
+        // Hide bean-specific fields
+        if (beanTrainingFields) {
+            beanTrainingFields.style.display = 'none';
+        }
+        
+        // Show all configuration sections for system ID training
+        if (dataConfigSection) dataConfigSection.style.display = 'block';
+        if (modelConfigSection) modelConfigSection.style.display = 'block';
+        if (lossConfigSection) lossConfigSection.style.display = 'block';
+    }
+}
+
+/**
+ * Initialize training type selector
+ */
+function initTrainingTypeSelector(): void {
+    const trainingTypeSelect = document.getElementById('trainingType');
+    if (trainingTypeSelect) {
+        trainingTypeSelect.addEventListener('change', handleTrainingTypeChange);
+        // Initialize the view
+        handleTrainingTypeChange();
+    }
+}
+
+/**
+ * Start bean training job
+ * Bean training uses a pre-trained system ID model and trains only the bean-specific parameters
+ */
+async function startBeanTraining(): Promise<void> {
+    try {
+        // Validation: Check system ID model is selected
+        const sysidModelSelect = document.getElementById('sysidModelSelect') as HTMLSelectElement;
+        if (!sysidModelSelect || !sysidModelSelect.value) {
+            showMessage('Please select a System ID model', 'error');
+            return;
+        }
+        
+        // Validation: Check bean variety is provided
+        const beanVarietyInput = document.getElementById('beanVariety') as HTMLInputElement;
+        if (!beanVarietyInput || !beanVarietyInput.value.trim()) {
+            showMessage('Please enter a bean variety name', 'error');
+            return;
+        }
+        
+        const sysidModelJobId = sysidModelSelect.value;
+        const beanVariety = beanVarietyInput.value.trim();
+        
+        // Create bean training configuration (simplified - only training params needed)
+        const beanConfig = {
+            bean_hidden_dims: [16],
+            training: {
+                lr: parseFloat((document.getElementById('learningRate') as HTMLInputElement).value),
+                max_epochs: parseInt((document.getElementById('maxEpochs') as HTMLInputElement).value),
+                patience: parseInt((document.getElementById('patience') as HTMLInputElement).value),
+                plot_interval: 10,
+                scheduler_factor: parseFloat((document.getElementById('schedulerFactor') as HTMLInputElement).value),
+                scheduler_patience: parseInt((document.getElementById('schedulerPatience') as HTMLInputElement).value),
+                scheduler_min_lr: parseFloat((document.getElementById('schedulerMinLr') as HTMLInputElement).value),
+                scheduler_verbose: (document.getElementById('schedulerVerbose') as HTMLInputElement).checked
+            }
+        };
+        
+        // Create job name
+        const jobName = (document.getElementById('jobName') as HTMLInputElement).value || 
+                       `${beanVariety} Bean Model ${new Date().toLocaleString()}`;
+        
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+            throw new Error('Not authenticated');
+        }
+        
+        // Insert training job into database
+        const { data: job, error: jobError } = await supabase
+            .from('training_jobs')
+            .insert({
+                user_id: user.id,
+                job_name: jobName,
+                status: 'pending',
+                config: beanConfig as any, // Bean config structure is different but will be handled
+                roast_file_ids: Array.from(selectedRoastIds)
+            })
+            .select()
+            .single();
+        
+        if (jobError) throw jobError;
+        
+        showMessage('Bean training job created! Triggering Modal...', 'info');
+        
+        // Call Supabase Edge Function for bean training
+        const response = await supabase.functions.invoke('trigger-bean-training', {
+            body: {
+                jobId: job.id,
+                sysidModelJobId: sysidModelJobId,
+                beanVariety: beanVariety,
+                roastFileIds: Array.from(selectedRoastIds),
+                config: beanConfig
+            }
+        });
+        
+        if (response.error) throw response.error;
+        
+        showMessage(`Bean training started successfully for ${beanVariety}! Check the jobs panel for progress.`, 'success');
+        
+        // Reset form
+        selectedRoastIds.clear();
+        displayRoasts();
+        (document.getElementById('jobName') as HTMLInputElement).value = '';
+        beanVarietyInput.value = '';
+        sysidModelSelect.selectedIndex = 0;
+        
+        // Reload jobs list
+        loadJobs();
+        
+    } catch (error: any) {
+        console.error('Error starting bean training:', error);
+        showMessage(`Failed to start bean training: ${error.message}`, 'error');
+    }
+}
+
+// ========================================
 // TRAINING JOB SUBMISSION
 // ========================================
 
@@ -719,7 +1013,14 @@ async function startTraining(): Promise<void> {
         showMessage('Please select at least one roast file', 'error');
         return;
     }
+    
+    // Check if we're doing bean training
+    if (currentTrainingType === 'bean') {
+        await startBeanTraining();
+        return;
+    }
 
+    // System ID training logic
     try {
         // Build configuration object from form inputs
         const config: TrainingConfig = {
@@ -1036,9 +1337,7 @@ function displayJobs(): void {
                 ` : ''}
                 ${shouldHaveChartContainer ? `
                     <div class="job-expanded-content" id="job-expanded-${job.id}" style="display: ${isExpanded ? 'block' : 'none'};">
-                        <div class="job-loss-chart-container" id="job-loss-chart-${job.id}">
-                            ${!hasLossHistory && isRunning ? '<div class="loading"><div class="loading-spinner"></div><div>Waiting for training data...</div></div>' : ''}
-                        </div>
+                        <div class="job-loss-chart-container" id="job-loss-chart-${job.id}"></div>
                     </div>
                 ` : ''}
             </div>
@@ -1391,6 +1690,31 @@ async function deleteModel(modelId: string, modelName: string): Promise<void> {
 }
 
 /**
+ * Initialize model type filter buttons
+ * Handles filtering between all models, roaster models, and bean models
+ */
+function initModelTypeFilters(): void {
+    const filterButtons = document.querySelectorAll('.model-type-filter-btn');
+    
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const modelType = btn.getAttribute('data-model-type') as 'all' | 'roaster' | 'bean';
+            if (!modelType) return;
+            
+            // Update active button styling
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update current filter
+            currentModelTypeFilter = modelType;
+            
+            // Reload models with new filter
+            loadModels();
+        });
+    });
+}
+
+/**
  * Start periodic refresh of jobs list
  * This keeps the job status and progress updated in real-time
  */
@@ -1427,6 +1751,12 @@ function startJobsRefresh(): void {
         // Initialize job filters
         initJobFilters();
         
+        // Initialize model type filters
+        initModelTypeFilters();
+        
+        // Initialize training type selector (for bean training support)
+        initTrainingTypeSelector();
+        
         // Set up training button handler
         const startTrainingBtn = document.getElementById('start-training-btn');
         if (startTrainingBtn) {
@@ -1435,6 +1765,7 @@ function startJobsRefresh(): void {
         
         // Load initial data
         await loadModels();
+        await loadSysidModels(); // Load system ID models for bean training
         await loadRoasts();
         await loadJobs();
         

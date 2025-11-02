@@ -871,15 +871,20 @@ export class RoasterSimulator {
   
   /**
    * Initialize Plotly charts
+   * Following the dashboard.ts pattern for reliable chart sizing
    */
   private initializeCharts(): void {
     // Temperature chart with dual y-axis (temperature + rate of rise)
     const tempLayout = {
       title: 'Temperature Profile & Rate of Rise',
-      xaxis: { title: 'Time (minutes)' },
+      xaxis: { 
+        title: 'Time (minutes)',
+        gridcolor: '#e0e0e0'
+      },
       yaxis: { 
         title: 'Temperature (°C)',
-        side: 'left'
+        side: 'left',
+        gridcolor: '#e0e0e0'
       },
       yaxis2: {
         title: 'Rate of Rise (°C/min)',
@@ -892,7 +897,8 @@ export class RoasterSimulator {
         range: [0, null]  // Set minimum to 0, let maximum auto-scale
       },
       showlegend: true,
-      margin: { t: 50, r: 80, b: 50, l: 50 }  // Increased right margin for second y-axis
+      margin: { t: 50, r: 80, b: 50, l: 60 },  // Consistent margins with dashboard
+      autosize: true  // Let container control the size
     };
     
     const tempData = [
@@ -978,15 +984,43 @@ export class RoasterSimulator {
       }
     ];
     
-    Plotly.newPlot('temperature-chart', tempData, tempLayout, {responsive: true});
+    const tempConfig = {
+      responsive: true,
+      displayModeBar: true,
+      displaylogo: false
+    };
+    
+    // Hide chart during creation to avoid flash of incorrectly sized chart
+    const tempChartDiv = document.getElementById('temperature-chart') as HTMLDivElement;
+    if (tempChartDiv) {
+      tempChartDiv.style.visibility = 'hidden';
+    }
+    
+    Plotly.newPlot('temperature-chart', tempData, tempLayout, tempConfig);
+    
+    // Trigger resize after DOM layout is complete, then show the chart
+    requestAnimationFrame(() => {
+      Plotly.Plots.resize('temperature-chart');
+      if (tempChartDiv) {
+        tempChartDiv.style.visibility = 'visible';
+      }
+    });
     
     // Control chart
     const controlLayout = {
       title: 'Control Inputs',
-      xaxis: { title: 'Time (minutes)' },
-      yaxis: { title: 'Control Value (0-1)', range: [0, 1] },
+      xaxis: { 
+        title: 'Time (minutes)',
+        gridcolor: '#e0e0e0'
+      },
+      yaxis: { 
+        title: 'Control Value (0-1)', 
+        range: [0, 1],
+        gridcolor: '#e0e0e0'
+      },
       showlegend: true,
-      margin: { t: 50, r: 50, b: 50, l: 50 }
+      margin: { t: 50, r: 80, b: 50, l: 60 },  // Consistent margins with temp chart
+      autosize: true  // Let container control the size
     };
     
     const controlData = [
@@ -1010,7 +1044,27 @@ export class RoasterSimulator {
       }
     ];
     
-    Plotly.newPlot('control-chart', controlData, controlLayout, {responsive: true});
+    const controlConfig = {
+      responsive: true,
+      displayModeBar: true,
+      displaylogo: false
+    };
+    
+    // Hide chart during creation to avoid flash of incorrectly sized chart
+    const controlChartDiv = document.getElementById('control-chart') as HTMLDivElement;
+    if (controlChartDiv) {
+      controlChartDiv.style.visibility = 'hidden';
+    }
+    
+    Plotly.newPlot('control-chart', controlData, controlLayout, controlConfig);
+    
+    // Trigger resize after DOM layout is complete, then show the chart
+    requestAnimationFrame(() => {
+      Plotly.Plots.resize('control-chart');
+      if (controlChartDiv) {
+        controlChartDiv.style.visibility = 'visible';
+      }
+    });
   }
   
   /**

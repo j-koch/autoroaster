@@ -95,7 +95,6 @@ const clearFiltersBtn = document.getElementById('clear-filters') as HTMLButtonEl
 const visualizeSelectedBtn = document.getElementById('visualize-selected') as HTMLButtonElement;
 const selectionCount = document.getElementById('selection-count') as HTMLSpanElement;
 const selectAllCheckbox = document.getElementById('select-all') as HTMLInputElement;
-const visualizeActions = document.getElementById('visualize-actions') as HTMLDivElement;
 
 // Visualization panel elements
 const vizPanelTitle = document.getElementById('viz-panel-title') as HTMLHeadingElement;
@@ -303,7 +302,7 @@ async function loadRoastHistory(): Promise<void> {
         // Store all roasts and apply filters
         allRoasts = roasts as Roast[];
         filterControls.style.display = 'block';
-        visualizeActions.style.display = 'block';
+        visualizeSelectedBtn.style.display = 'inline-block';  // Show button when roasts exist
         historyTableContainer.style.display = 'block';
         applyFiltersAndSort();
         

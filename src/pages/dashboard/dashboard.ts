@@ -1475,6 +1475,28 @@ function setupSidebarNavigation(): void {
 // ========================================
 
 /**
+ * Handle URL hash on page load to navigate to the correct view
+ */
+function handleInitialHash(): void {
+    const hash = window.location.hash.substring(1); // Remove the '#' prefix
+    
+    if (hash === 'testbed') {
+        // Navigate to testbed view
+        const testbedLink = document.querySelector('.sidebar-link[data-page="testbed"]') as HTMLElement;
+        if (testbedLink) {
+            testbedLink.click();
+        }
+    } else if (hash === 'data-manager') {
+        // Navigate to data manager view (default)
+        const dataManagerLink = document.querySelector('.sidebar-link[data-page="data-manager"]') as HTMLElement;
+        if (dataManagerLink) {
+            dataManagerLink.click();
+        }
+    }
+    // No specific handling needed for other hashes - default view will show
+}
+
+/**
  * Initialize dashboard on page load
  */
 async function init(): Promise<void> {
@@ -1484,9 +1506,15 @@ async function init(): Promise<void> {
     // Setup sidebar navigation
     setupSidebarNavigation();
     
-    // Load initial data
+    // Handle URL hash to show correct view
+    handleInitialHash();
+    
+    // Load initial data if on data manager view
     if (currentUser) {
-        loadRoastHistory();
+        const hash = window.location.hash.substring(1);
+        if (!hash || hash === 'data-manager') {
+            loadRoastHistory();
+        }
     }
 }
 

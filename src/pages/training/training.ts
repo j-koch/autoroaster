@@ -804,12 +804,11 @@ function initRoastFilters(): void {
 
 /**
  * Load available System ID models for bean training
- * These are completed training jobs with system ID models
+ * These are completed training jobs with roaster models (not bean models)
  */
 async function loadSysidModels(): Promise<void> {
     try {
-        // Query for completed training jobs (these are potential system ID models)
-        // For now, we'll use all completed jobs, but in the future we could add a model_type field
+        // Query for completed training jobs
         const { data, error } = await supabase
             .from('training_jobs')
             .select('*')
@@ -818,7 +817,11 @@ async function loadSysidModels(): Promise<void> {
         
         if (error) throw error;
         
-        sysidModels = data as TrainingJob[];
+        // Filter to only include roaster models (System ID models)
+        // Bean models should not be used as base models for other bean training
+        const allModels = data as TrainingJob[];
+        sysidModels = allModels.filter(model => getModelType(model) === 'roaster');
+        
         populateSysidModelSelect();
         
     } catch (error: any) {

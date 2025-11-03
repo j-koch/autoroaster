@@ -101,6 +101,7 @@ export class TestbedSimulator {
     environment: number[];
     roaster: number[];
     air: number[];
+    rateOfRise: number[];
   };
   
   // Scaling factors (from dataset.py)
@@ -151,7 +152,8 @@ export class TestbedSimulator {
       bean: [],
       environment: [],
       roaster: [],
-      air: []
+      air: [],
+      rateOfRise: []
     };
     
     // Initialize scaling factors
@@ -346,16 +348,27 @@ export class TestbedSimulator {
    * Initialize Plotly charts
    */
   private initializeCharts(): void {
-    // Temperature chart
+    // Temperature chart with dual y-axis (temperature + rate of rise)
     const tempLayout = {
-      title: 'Temperature Profile',
+      title: 'Temperature Profile & Rate of Rise',
       xaxis: { 
         title: 'Time (minutes)',
         gridcolor: '#e0e0e0'
       },
       yaxis: { 
         title: 'Temperature (°C)',
+        side: 'left',
         gridcolor: '#e0e0e0'
+      },
+      yaxis2: {
+        title: 'Rate of Rise (°C/min)',
+        side: 'right',
+        overlaying: 'y',
+        showgrid: false,
+        zeroline: true,
+        zerolinecolor: '#666',
+        zerolinewidth: 1,
+        range: [0, null]  // Set minimum to 0, let maximum auto-scale
       },
       showlegend: true,
       margin: { t: 50, r: 80, b: 50, l: 60 },
@@ -367,31 +380,43 @@ export class TestbedSimulator {
         x: [],
         y: [],
         name: 'Bean Probe',
-        line: { color: '#8B4513', width: 3 }
+        line: { color: '#8B4513', width: 3 },
+        yaxis: 'y'  // Use left y-axis
       },
       {
         x: [],
         y: [],
         name: 'Bean Surface',
-        line: { color: '#FF6B35', width: 2 }
+        line: { color: '#FF6B35', width: 2 },
+        yaxis: 'y'  // Use left y-axis
       },
       {
         x: [],
         y: [],
         name: 'Drum',
-        line: { color: '#4ECDC4', width: 2 }
+        line: { color: '#4ECDC4', width: 2 },
+        yaxis: 'y'  // Use left y-axis
       },
       {
         x: [],
         y: [],
         name: 'Env. Probe',
-        line: { color: '#45B7D1', width: 2 }
+        line: { color: '#45B7D1', width: 2 },
+        yaxis: 'y'  // Use left y-axis
+      },
+      {
+        x: [],
+        y: [],
+        name: 'Rate of Rise',
+        line: { color: '#FF1493', width: 2, dash: 'dot' },
+        yaxis: 'y2'  // Use right y-axis
       },
       {
         x: [],
         y: [],
         name: 'Bean Forecast',
         line: { color: '#8B4513', width: 2, dash: 'dash' },
+        yaxis: 'y',
         opacity: 0.6,
         showlegend: false
       },
@@ -400,6 +425,7 @@ export class TestbedSimulator {
         y: [],
         name: 'Surface Forecast',
         line: { color: '#FF6B35', width: 1.5, dash: 'dash' },
+        yaxis: 'y',
         opacity: 0.5,
         showlegend: false
       },
@@ -408,6 +434,7 @@ export class TestbedSimulator {
         y: [],
         name: 'Drum Forecast',
         line: { color: '#4ECDC4', width: 1.5, dash: 'dash' },
+        yaxis: 'y',
         opacity: 0.5,
         showlegend: false
       },
@@ -416,7 +443,17 @@ export class TestbedSimulator {
         y: [],
         name: 'Air Forecast',
         line: { color: '#45B7D1', width: 1.5, dash: 'dash' },
+        yaxis: 'y',
         opacity: 0.5,
+        showlegend: false
+      },
+      {
+        x: [],
+        y: [],
+        name: 'RoR Forecast',
+        line: { color: '#FF1493', width: 2, dash: 'dash' },
+        yaxis: 'y2',  // Use right y-axis (rate of rise axis)
+        opacity: 0.6,
         showlegend: false
       }
     ];
@@ -687,6 +724,7 @@ export class TestbedSimulator {
         this.forecastData.environment = forecast.environment;
         this.forecastData.roaster = forecast.roaster;
         this.forecastData.air = forecast.air;
+        this.forecastData.rateOfRise = forecast.rateOfRise;
       } else {
         // Clear forecast if no beans present
         this.forecastData.time = [];
@@ -694,6 +732,7 @@ export class TestbedSimulator {
         this.forecastData.environment = [];
         this.forecastData.roaster = [];
         this.forecastData.air = [];
+        this.forecastData.rateOfRise = [];
       }
       
       // Update UI
@@ -713,9 +752,9 @@ export class TestbedSimulator {
   
   /**
    * Compute 4-minute (240-second) forecast from current state
-   * Predicts future temperatures over the next 4 minutes using current control inputs
+   * Predicts future temperatures and RoR over the next 4 minutes using current control inputs
    * 
-   * @returns forecast - Object containing time and temperature arrays for all state variables
+   * @returns forecast - Object containing time, temperature, and RoR arrays for all state variables
    */
   private async compute4MinuteForecast(): Promise<{
     time: number[];
@@ -723,6 +762,7 @@ export class TestbedSimulator {
     environment: number[];
     roaster: number[];
     air: number[];
+    rateOfRise: number[];
   }> {
     const forecastHorizon = 240; // seconds into the future (4 minutes)
     const forecastSteps = Math.ceil(forecastHorizon / this.timestep);
@@ -800,12 +840,33 @@ export class TestbedSimulator {
       forecastBeanTemp.push(this.denormalizeTemperature(forecastState[3]));
     }
     
+    // Calculate rate of rise for the forecast
+    // Rate of rise (°C/min) is the change in temperature divided by the change in time
+    const forecastRateOfRise: number[] = [];
+    for (let i = 0; i < forecastBeanTemp.length; i++) {
+      if (i === 0) {
+        // For the first forecast point, calculate RoR from current actual temperature to first forecast
+        const currentBeanTemp = this.denormalizeTemperature(this.currentState[3]);
+        const timeDiff = forecastTime[0] - (this.simulationTime / 60);
+        const tempDiff = forecastBeanTemp[0] - currentBeanTemp;
+        const rateOfRise = timeDiff > 0 ? tempDiff / timeDiff : 0;
+        forecastRateOfRise.push(rateOfRise);
+      } else {
+        // For subsequent points, calculate RoR between consecutive forecast points
+        const timeDiff = forecastTime[i] - forecastTime[i - 1];
+        const tempDiff = forecastBeanTemp[i] - forecastBeanTemp[i - 1];
+        const rateOfRise = timeDiff > 0 ? tempDiff / timeDiff : 0;
+        forecastRateOfRise.push(rateOfRise);
+      }
+    }
+    
     return {
       time: forecastTime,
       bean: forecastBeanTemp,
       environment: forecastEnvironmentTemp,
       roaster: forecastRoasterTemp,
-      air: forecastAirTemp
+      air: forecastAirTemp,
+      rateOfRise: forecastRateOfRise
     };
   }
   
@@ -903,27 +964,38 @@ export class TestbedSimulator {
       ylimit = Math.max(200, maxTemp + 25);
     }
     
-    // Update temperature chart (including forecast traces)
+    // Calculate y2limit for rate of rise: maximum of 10°C/min and (max rate of rise + 2°C/min)
+    let y2limit = 10; // Default minimum of 10°C/min
+    if (this.rateOfRiseData.length > 0) {
+      const maxRateOfRise = Math.max(...this.rateOfRiseData);
+      y2limit = Math.max(10, maxRateOfRise + 2);
+    }
+    
+    // Update temperature chart (including RoR and forecast traces)
     const tempUpdate = {
       x: [
-        this.timeData, 
-        this.timeData, 
-        this.timeData, 
-        this.timeData,
-        this.forecastData.time,  // Bean forecast
-        this.forecastData.time,  // Surface forecast
-        this.forecastData.time,  // Drum forecast
-        this.forecastData.time   // Air forecast
+        this.timeData,           // Bean probe (trace 0)
+        this.timeData,           // Bean surface (trace 1)
+        this.timeData,           // Drum (trace 2)
+        this.timeData,           // Env probe (trace 3)
+        this.timeData,           // Rate of Rise (trace 4)
+        this.forecastData.time,  // Bean forecast (trace 5)
+        this.forecastData.time,  // Surface forecast (trace 6)
+        this.forecastData.time,  // Drum forecast (trace 7)
+        this.forecastData.time,  // Air forecast (trace 8)
+        this.forecastData.time   // RoR forecast (trace 9)
       ],
       y: [
-        this.temperatureData.bean,
-        this.temperatureData.environment,
-        this.temperatureData.roaster,
-        this.temperatureData.air,
-        this.forecastData.bean,        // Bean forecast
-        this.forecastData.environment, // Surface forecast
-        this.forecastData.roaster,     // Drum forecast
-        this.forecastData.air          // Air forecast
+        this.temperatureData.bean,         // Bean probe (trace 0)
+        this.temperatureData.environment,  // Bean surface (trace 1)
+        this.temperatureData.roaster,      // Drum (trace 2)
+        this.temperatureData.air,          // Env probe (trace 3)
+        this.rateOfRiseData,               // Rate of Rise (trace 4, y2 axis)
+        this.forecastData.bean,            // Bean forecast (trace 5)
+        this.forecastData.environment,     // Surface forecast (trace 6)
+        this.forecastData.roaster,         // Drum forecast (trace 7)
+        this.forecastData.air,             // Air forecast (trace 8)
+        this.forecastData.rateOfRise       // RoR forecast (trace 9, y2 axis)
       ]
     };
     Plotly.restyle(this.idPrefix + 'temperature-chart', tempUpdate);
@@ -947,6 +1019,7 @@ export class TestbedSimulator {
     const tempLayoutUpdate = {
       'xaxis.range': [0, xlimit],
       'yaxis.range': [0, ylimit],
+      'yaxis2.range': [0, y2limit],  // Update RoR y-axis range
       shapes: shapes
     };
     Plotly.relayout(this.idPrefix + 'temperature-chart', tempLayoutUpdate);

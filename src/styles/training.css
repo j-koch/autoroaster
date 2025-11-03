@@ -490,6 +490,12 @@ body {
     border-radius: 6px;
     padding: 10px;
     min-height: 300px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.loss-chart-container > div {
+    width: 100% !important;
 }
 
 /* ========================================
@@ -917,6 +923,12 @@ body {
     padding: 10px;
     min-height: 300px;
     margin-bottom: 10px;
+    width: 100%;
+    overflow: hidden;
+}
+
+.job-loss-chart-container > div {
+    width: 100% !important;
 }
 
 .progress-bar {

@@ -562,11 +562,17 @@ function plotLossHistory(lossHistory: { total?: number[], recon?: number[], esti
         title: 'Training Loss History',
         xaxis: { title: 'Epoch' },
         yaxis: { title: 'Loss', type: 'log' as const },
+        autosize: true,
         height: 300,
         margin: { l: 60, r: 30, t: 40, b: 40 }
     };
     
-    Plotly.newPlot(container, traces, layout, { responsive: true });
+    const config = {
+        responsive: true,
+        displayModeBar: false
+    };
+    
+    Plotly.newPlot(container, traces, layout, config);
 }
 
 // ========================================
@@ -1482,6 +1488,7 @@ function plotJobLossHistory(jobId: string, lossHistory: { total?: number[], reco
             type: 'log' as const,
             gridcolor: '#e0e0e0'
         },
+        autosize: true,
         height: 300,
         margin: { l: 60, r: 30, t: 40, b: 40 },
         plot_bgcolor: '#fafafa',

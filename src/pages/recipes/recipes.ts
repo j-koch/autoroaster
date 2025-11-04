@@ -15,16 +15,12 @@ import { RecipeGenerator } from './RecipeGenerator';
  * Handles tab switching between visualizer and generator
  */
 class Recipes {
-  private currentView: 'visualizer' | 'generator' = 'visualizer';
-  private visualizer: RecipeVisualizer;
-  private generator: RecipeGenerator;
-  
   constructor() {
     console.log('Initializing Recipes page...');
     
     // Initialize sub-modules
-    this.visualizer = new RecipeVisualizer();
-    this.generator = new RecipeGenerator();
+    new RecipeVisualizer();
+    new RecipeGenerator();
     
     this.initializeUI();
   }
@@ -78,8 +74,6 @@ class Recipes {
    * @param view - The view to switch to
    */
   private switchView(view: 'visualizer' | 'generator'): void {
-    this.currentView = view;
-    
     // Update tab active states
     const tabs = document.querySelectorAll('.view-tab');
     tabs.forEach(tab => {

@@ -125,9 +125,6 @@ export class RecipeGenerator {
     ]
   };
   
-  // Currently selected control point for dragging
-  private selectedPoint: { input: 'heater' | 'fan' | 'drum', index: number } | null = null;
-  
   // Simulated results (predicted temperatures)
   private simulatedResults: {
     time: number[];
@@ -148,9 +145,6 @@ export class RecipeGenerator {
   private readonly parametersDiv: HTMLDivElement;
   private readonly actionButtons: HTMLDivElement;
   private readonly chartsContainer: HTMLDivElement;
-  
-  // Combined chart instance that shows both temperature and controls
-  private combinedChart: any = null;
   
   // Control sliders and inputs
   private readonly recipeNameInput: HTMLInputElement;
@@ -440,7 +434,7 @@ export class RecipeGenerator {
             round: 1,
             showTooltip: true,
             // Callback when dragging a point
-            onDrag: (e: any, datasetIndex: number, index: number, value: any) => {
+            onDrag: (_e: any, datasetIndex: number, index: number, value: any) => {
               // Only allow dragging control datasets (0 and 1), not temperature datasets (2+)
               if (datasetIndex >= 2) {
                 return false; // Temperature datasets are not draggable
@@ -468,7 +462,7 @@ export class RecipeGenerator {
                 y: points[index].value * 100
               };
             },
-            onDragEnd: (e: any, datasetIndex: number, index: number, value: any) => {
+            onDragEnd: (_e: any, datasetIndex: number, index: number, value: any) => {
               console.log('Drag complete:', { datasetIndex, index, value });
               // Automatically simulate after dragging
               this.simulateProfile();
@@ -525,11 +519,13 @@ export class RecipeGenerator {
             if (chartArea && clickX >= chartArea.left && clickX <= chartArea.right && 
                 clickY >= chartArea.top && clickY <= chartArea.bottom) {
               
-              const xScale = chart.scales.x;
-              const yScale = chart.scales.y;
+              const xScale = chart.scales?.x;
+              const yScale = chart.scales?.y;
               
-              const timeValue = xScale.getValueForPixel(clickX);
-              const powerValue = yScale.getValueForPixel(clickY);
+              if (!xScale || !yScale || !xScale.getValueForPixel || !yScale.getValueForPixel) return;
+              
+              const timeValue = xScale.getValueForPixel(clickX) as number;
+              const powerValue = yScale.getValueForPixel(clickY) as number;
               
               // Constrain power value to 0-100 range
               const constrainedPower = Math.max(0, Math.min(100, powerValue));
@@ -863,6 +859,8 @@ export class RecipeGenerator {
     if (!this.simulatedResults || !controlChart) return;
     
     // Get current control datasets (heater and fan are datasets 0 and 1)
+    // Ensure datasets exist before accessing them
+    if (!controlChart.data.datasets || controlChart.data.datasets.length < 2) return;
     const heaterDataset = controlChart.data.datasets[0];
     const fanDataset = controlChart.data.datasets[1];
     
@@ -881,12 +879,13 @@ export class RecipeGenerator {
     
     // Add temperature datasets (these will be datasets 2-6, including RoR)
     // We'll use different colors and line styles to distinguish them
+    const results = this.simulatedResults; // Store reference for map callbacks
     const tempDatasets = [
       {
         label: 'Bean Probe',
-        data: this.simulatedResults.time.map((t, i) => ({
+        data: results.time.map((t, i) => ({
           x: t,
-          y: this.simulatedResults.bean_temp[i]
+          y: results.bean_temp[i]
         })),
         borderColor: '#e74c3c',
         backgroundColor: 'transparent',
@@ -909,9 +908,9 @@ export class RecipeGenerator {
       },
       {
         label: 'Bean Surface',
-        data: this.simulatedResults.time.map((t, i) => ({
+        data: results.time.map((t, i) => ({
           x: t,
-          y: this.simulatedResults.bean_surface_temp[i]
+          y: results.bean_surface_temp[i]
         })),
         borderColor: '#e67e22',
         backgroundColor: 'transparent',
@@ -923,9 +922,9 @@ export class RecipeGenerator {
       },
       {
         label: 'Drum',
-        data: this.simulatedResults.time.map((t, i) => ({
+        data: results.time.map((t, i) => ({
           x: t,
-          y: this.simulatedResults.drum_temp[i]
+          y: results.drum_temp[i]
         })),
         borderColor: '#3498db',
         backgroundColor: 'transparent',
@@ -936,9 +935,9 @@ export class RecipeGenerator {
       },
       {
         label: 'Air',
-        data: this.simulatedResults.time.map((t, i) => ({
+        data: results.time.map((t, i) => ({
           x: t,
-          y: this.simulatedResults.air_temp[i]
+          y: results.air_temp[i]
         })),
         borderColor: '#2ecc71',
         backgroundColor: 'transparent',

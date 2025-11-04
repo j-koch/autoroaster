@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AutoRoaster - Recipes</title>
+    <link rel="stylesheet" href="./src/styles/dashboard.css">
+    <link rel="stylesheet" href="./src/styles/recipes.css">
+    
+    <!-- ONNX Runtime Web (for recipe simulator) -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/ort.min.js"></script>
+    
+    <!-- Chart.js for interactive control editor -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-dragdata@2.2.5/dist/chartjs-plugin-dragdata.min.js"></script>
+    
+    <!-- Plotly.js for visualization -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-brand">☕ AutoRoaster</div>
+        <div class="navbar-user">
+            <span class="user-email" id="user-email">Loading...</span>
+            <button class="btn-signout" id="signout-btn">Sign Out</button>
+        </div>
+    </nav>
+    
+    <!-- Main Layout with Sidebar -->
+    <div class="main-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <a href="./dashboard.html" class="sidebar-link">
+                    <span class="sidebar-icon">📊</span>
+                    <span class="sidebar-text">Data Manager</span>
+                </a>
+                <a href="./training.html" class="sidebar-link">
+                    <span class="sidebar-icon">🤖</span>
+                    <span class="sidebar-text">Model Training</span>
+                </a>
+                <a href="#testbed" class="sidebar-link">
+                    <span class="sidebar-icon">🧪</span>
+                    <span class="sidebar-text">Digital Testbed</span>
+                </a>
+                <a href="./recipes.html" class="sidebar-link active">
+                    <span class="sidebar-icon">📖</span>
+                    <span class="sidebar-text">Recipes</span>
+                </a>
+            </nav>
+        </aside>
+        
+        <!-- Main Content Area -->
+        <div class="container">
+            <!-- Message Display -->
+            <div id="message" class="message"></div>
+            
+            <!-- View Tabs -->
+            <div class="view-tabs">
+                <button class="view-tab active" data-view="visualizer">Recipe Visualizer</button>
+                <button class="view-tab" data-view="generator">Profile Generator</button>
+            </div>
+            
+            <!-- Recipe Visualizer View (copy of roast history) -->
+            <div id="visualizer-view" class="view active">
+                <div class="roast-history-container">
+                    <!-- Left Column: Table -->
+                    <div class="table-column">
+                        <div class="roast-history">
+                            <h2>Your Saved Recipes</h2>
+                            
+                            <!-- Loading State -->
+                            <div id="recipe-loading" class="loading">
+                                <div class="loading-spinner"></div>
+                                <div>Loading your recipes...</div>
+                            </div>
+                            
+                            <!-- Empty State -->
+                            <div id="recipe-empty" class="empty-state" style="display: none;">
+                                <div class="empty-state-icon">📖</div>
+                                <h3>No Recipes Yet</h3>
+                                <p>Create your first recipe using the Profile Generator!</p>
+                            </div>
+                            
+                            <!-- Table Container -->
+                            <div id="recipe-table-container" class="table-container" style="display: none;">
+                                <table class="roast-table">
+                                    <thead>
+                                        <tr>
+                                            <th><input type="checkbox" id="recipe-select-all" title="Select all"></th>
+                                            <th>Name</th>
+                                            <th>Created</th>
+                                            <th>Duration</th>
+                                            <th>Target Temp</th>
+                                            <th>Bean Mass</th>
+                                            <th>
+                                                <div class="actions-header">
+                                                    <span>Actions</span>
+                                                    <button id="recipe-visualize-selected" class="btn-visualize-selected" title="Visualize selected recipes" style="display: none;">
+                                                        📊 Compare (<span id="recipe-selection-count">0</span>)
+                                                    </button>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recipe-table-body">
+                                        <!-- Recipes will be dynamically inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Visualization -->
+                    <div class="viz-column">
+                        <div class="viz-panel">
+                            <h3 id="recipe-viz-panel-title">Select a recipe to visualize</h3>
+                            
+                            <!-- Chart Loading -->
+                            <div id="recipe-viz-panel-loading" class="loading" style="display: none;">
+                                <div class="loading-spinner"></div>
+                                <div>Loading recipe data...</div>
+                            </div>
+                            
+                            <!-- Combined Chart Container -->
+                            <div id="recipe-viz-panel-charts" style="display: none;">
+                                <canvas id="recipe-combined-chart"></canvas>
+                            </div>
+                            
+                            <!-- Empty State -->
+                            <div id="recipe-viz-panel-empty" class="viz-empty-state">
+                                <div class="viz-empty-icon">📊</div>
+                                <p>Select recipes to visualize</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Profile Generator View -->
+            <div id="generator-view" class="view">
+                <div class="generator-container">
+                    <!-- Left Sidebar: Controls and Model Selection -->
+                    <div class="generator-sidebar">
+                        <h1>Profile Generator</h1>
+                        
+                        <!-- Loading/Error Messages -->
+                        <div id="generator-loading" class="loading" style="display: none;">
+                            <div class="loading-spinner"></div>
+                            <div>Loading ONNX models...</div>
+                        </div>
+                        <div id="generator-error" class="error" style="display: none;"></div>
+                        
+                        <!-- Recipe Info -->
+                        <div class="controls-section" id="generator-recipe-info" style="display: none;">
+                            <h2>Recipe Info</h2>
+                            <div class="control-group">
+                                <label for="recipe-name">Recipe Name</label>
+                                <input type="text" id="recipe-name" class="control-input" placeholder="My Recipe" value="Untitled Recipe">
+                            </div>
+                        </div>
+                        
+                        <!-- Parameters Section -->
+                        <div class="controls-section" id="generator-parameters" style="display: none;">
+                            <h2>Parameters</h2>
+                            
+                            <div class="control-group">
+                                <label for="generator-mass-slider">Bean Mass (g)</label>
+                                <div class="slider-container">
+                                    <input type="range" id="generator-mass-slider" class="slider" min="50" max="200" step="5" value="150">
+                                    <span id="generator-mass-value" class="value-display">150g</span>
+                                </div>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="generator-ambient-slider">Ambient Temperature (°C)</label>
+                                <div class="slider-container">
+                                    <input type="range" id="generator-ambient-slider" class="slider" min="15" max="35" step="1" value="24">
+                                    <span id="generator-ambient-value" class="value-display">24°C</span>
+                                </div>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="generator-duration">Roast Duration (seconds)</label>
+                                <input type="number" id="generator-duration" class="control-input" min="300" max="1200" step="10" value="600">
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="button-group" id="generator-action-buttons" style="display: none;">
+                            <button id="generator-simulate-btn" class="btn-primary">Simulate Profile</button>
+                            <button id="generator-save-btn" class="btn-success">Save Recipe</button>
+                            <button id="generator-reset-btn" class="btn-secondary">Reset</button>
+                        </div>
+                        
+                        <!-- Model Selection Section (shown initially) -->
+                        <div class="controls-section" id="generator-model-selection">
+                            <h2>Model Selection</h2>
+                            <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                                Select your trained roaster and bean models to begin creating recipes
+                            </p>
+                            
+                            <div class="control-group">
+                                <label for="generator-roaster-model">Roaster System ID Model <span class="required">*</span></label>
+                                <select id="generator-roaster-model" class="model-select">
+                                    <option value="">-- Select from trained models --</option>
+                                </select>
+                            </div>
+                            
+                            <div class="control-group">
+                                <label for="generator-bean-model">Bean Model <span class="required">*</span></label>
+                                <select id="generator-bean-model" class="model-select">
+                                    <option value="">-- Select from trained models --</option>
+                                </select>
+                            </div>
+                            
+                            <button id="generator-load-btn" class="btn-primary">
+                                Load Models & Start
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Main Content Area -->
+                    <div class="generator-main">
+                        <!-- Combined Charts Container -->
+                        <div id="generator-charts-container" class="combined-charts-container" style="display: none;">
+                            <div class="charts-header">
+                                <h3>Recipe Profile Editor</h3>
+                                <div class="control-selector">
+                                    <label>Editing:</label>
+                                    <button class="control-selector-btn active" data-control="heater">🔥 Heater</button>
+                                    <button class="control-selector-btn" data-control="fan">💨 Fan</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Combined Chart and Editor -->
+                            <div class="chart-section combined-editor-section">
+                                <canvas id="generator-combined-chart"></canvas>
+                                <div class="editor-hint">
+                                    Double-click to add control points • Drag points to adjust time/power • Click points to remove
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div id="generator-empty" class="testbed-empty-state">
+                            <div class="empty-icon">📖</div>
+                            <h3>Profile Generator</h3>
+                            <p>Select your trained models from the sidebar to begin creating recipes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="./src/pages/recipes/recipes.ts"></script>
+</body>
+</html>

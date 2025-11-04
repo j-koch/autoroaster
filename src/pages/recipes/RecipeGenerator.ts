@@ -221,11 +221,15 @@ export class RecipeGenerator {
     this.massSlider.addEventListener('input', (e) => {
       this.beanMassG = parseFloat((e.target as HTMLInputElement).value);
       this.massValue.textContent = `${this.beanMassG}g`;
+      // Automatically re-run simulation when bean mass changes
+      this.simulateProfile();
     });
     
     this.ambientSlider.addEventListener('input', (e) => {
       this.ambientTempC = parseFloat((e.target as HTMLInputElement).value);
       this.ambientValue.textContent = `${this.ambientTempC}°C`;
+      // Automatically re-run simulation when ambient temperature changes
+      this.simulateProfile();
     });
     
     this.durationInput.addEventListener('change', (e) => {

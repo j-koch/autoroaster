@@ -437,8 +437,9 @@ export class RecipeGenerator {
           dragData: {
             round: 1,
             showTooltip: true,
-            // Callback when dragging a point
-            onDrag: (_e: any, datasetIndex: number, index: number, value: any) => {
+            dragX: true,  // Enable horizontal (time) dragging
+            // Callback before dragging starts - return false to prevent drag
+            onDragStart: (_e: any, datasetIndex: number, _index: number, _value: any) => {
               // Only allow dragging control datasets (0 and 1), not temperature datasets (2+)
               if (datasetIndex >= 2) {
                 return false; // Temperature datasets are not draggable
@@ -450,20 +451,38 @@ export class RecipeGenerator {
                 return false; // Prevent dragging inactive control
               }
               
+              return true; // Allow drag to start
+            },
+            // Callback when dragging a point
+            onDrag: (_e: any, datasetIndex: number, index: number, value: any) => {
+              // This should only be called for the active control due to onDragStart filtering
+              const controlName = datasetIndex === 0 ? 'heater' : 'fan';
+              
               const points = this.controlProfile[controlName];
               
-              // Constrain time to valid range (don't allow reordering points)
-              const prevTime = index > 0 ? points[index - 1].time : 0;
-              const nextTime = index < points.length - 1 ? points[index + 1].time : this.durationSeconds;
+              // Simply constrain to valid ranges - allow free movement
+              // X (time) constrained to 0 to duration
+              const constrainedX = Math.max(0, Math.min(this.durationSeconds, value.x));
               
-              // Constrain and update the point
-              points[index].time = Math.max(prevTime + 1, Math.min(nextTime - 1, value.x));
-              points[index].value = Math.max(0, Math.min(1, value.y / 100));
+              // Y (power) constrained to 0-100%
+              const constrainedY = Math.max(0, Math.min(1, value.y / 100));
               
-              // Return constrained values to update the chart
+              // Update the point with constrained values
+              points[index].time = constrainedX;
+              points[index].value = constrainedY;
+              
+              // Sort points by time to maintain proper order
+              // This allows points to naturally "swap" positions when dragged past each other
+              points.sort((a, b) => a.time - b.time);
+              
+              // Update the chart data with sorted points
+              const sortedData = points.map(p => ({ x: p.time, y: p.value * 100 }));
+              controlChart.data.datasets[datasetIndex].data = sortedData;
+              
+              // Return constrained values to update the chart visually
               return {
-                x: points[index].time,
-                y: points[index].value * 100
+                x: constrainedX,
+                y: constrainedY * 100
               };
             },
             onDragEnd: (_e: any, datasetIndex: number, index: number, value: any) => {
@@ -586,9 +605,57 @@ export class RecipeGenerator {
         buttons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         
+        // Update visual appearance of control points to show which is active/inactive
+        this.updateControlVisuals();
+        
         console.log(`Switched to editing ${control} control`);
       });
     });
+  }
+  
+  /**
+   * Update the visual appearance of control datasets to indicate active/inactive state
+   * Active control has larger, more prominent points
+   * Inactive control has smaller, more transparent points
+   */
+  private updateControlVisuals(): void {
+    if (!controlChart || !controlChart.data.datasets) return;
+    
+    // Heater is dataset 0, Fan is dataset 1
+    const heaterDataset = controlChart.data.datasets[0];
+    const fanDataset = controlChart.data.datasets[1];
+    
+    if (activeControl === 'heater') {
+      // Heater is active - make it prominent
+      heaterDataset.pointRadius = 8;
+      heaterDataset.pointHoverRadius = 10;
+      heaterDataset.borderWidth = 2;
+      heaterDataset.pointBackgroundColor = '#e74c3c';
+      heaterDataset.borderColor = '#e74c3c';
+      
+      // Fan is inactive - make it subtle
+      fanDataset.pointRadius = 5;
+      fanDataset.pointHoverRadius = 7;
+      fanDataset.borderWidth = 1.5;
+      fanDataset.pointBackgroundColor = 'rgba(52, 152, 219, 0.5)';
+      fanDataset.borderColor = 'rgba(52, 152, 219, 0.5)';
+    } else {
+      // Fan is active - make it prominent
+      fanDataset.pointRadius = 8;
+      fanDataset.pointHoverRadius = 10;
+      fanDataset.borderWidth = 2;
+      fanDataset.pointBackgroundColor = '#3498db';
+      fanDataset.borderColor = '#3498db';
+      
+      // Heater is inactive - make it subtle
+      heaterDataset.pointRadius = 5;
+      heaterDataset.pointHoverRadius = 7;
+      heaterDataset.borderWidth = 1.5;
+      heaterDataset.pointBackgroundColor = 'rgba(231, 76, 60, 0.5)';
+      heaterDataset.borderColor = 'rgba(231, 76, 60, 0.5)';
+    }
+    
+    controlChart.update();
   }
   
   /**
@@ -664,16 +731,22 @@ export class RecipeGenerator {
    * @param newDuration - New roast duration in seconds
    */
   private updateDuration(newDuration: number): void {
-    const oldDuration = this.durationSeconds;
     this.durationSeconds = newDuration;
     
-    // Scale all control points proportionally
+    // Keep control points at their absolute time positions
+    // Only update the last point to match the new duration
     ['heater', 'fan', 'drum'].forEach(input => {
       const points = this.controlProfile[input as keyof ControlProfile];
-      points.forEach(point => {
-        point.time = (point.time / oldDuration) * newDuration;
-      });
+      if (points.length > 0) {
+        // Update the last point's time to match new duration
+        points[points.length - 1].time = newDuration;
+      }
     });
+    
+    // Update the x-axis max to match new duration
+    if (controlChart && controlChart.options.scales.x) {
+      controlChart.options.scales.x.max = newDuration;
+    }
     
     // Update the control editor if it's visible
     if (this.chartsContainer.style.display !== 'none') {

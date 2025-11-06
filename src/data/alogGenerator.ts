@@ -155,7 +155,7 @@ export function generateAlogFile(recipe: Recipe): string {
   // These are critical for Artisan to display controls properly
   // Format: events occur at time indices (not seconds) into the timex array
   // specialevents: array of indices into timex where events occur
-  // specialeventstype: array of event types (0=fan, 1=?, 3=heater)
+  // specialeventstype: array of event types (0=fan, 1=drum, 3=heater)
   // specialeventsvalue: array of event values (power levels 0-10 scale)
   // specialeventsStrings: array of string labels for events
   // Use the original control profile times (not interpolated) to create proper step functions
@@ -164,7 +164,9 @@ export function generateAlogFile(recipe: Recipe): string {
     recipe.control_profile.heater.time,
     recipe.control_profile.heater.values,
     recipe.control_profile.fan.time,
-    recipe.control_profile.fan.values
+    recipe.control_profile.fan.values,
+    recipe.control_profile.drum.time,
+    recipe.control_profile.drum.values
   );
   
   alogContent += `'specialevents': ${formatPythonIntArray(specialEvents.events)},\n`;
@@ -210,6 +212,7 @@ export function generateAlogFile(recipe: Recipe): string {
  * 
  * Event types:
  * - Type 0: Fan speed change
+ * - Type 1: Drum speed change
  * - Type 3: Heater power change
  * 
  * Values are on a 0-10 scale (divide 0-100 scale by 10)
@@ -219,6 +222,8 @@ export function generateAlogFile(recipe: Recipe): string {
  * @param heaterValues - Heater power values (0-1 scale) at each time point
  * @param fanTime - Time points for fan control changes (seconds)
  * @param fanValues - Fan speed values (0-1 scale) at each time point
+ * @param drumTime - Time points for drum control changes (seconds)
+ * @param drumValues - Drum speed values (0-1 scale) at each time point
  * @returns Object with parallel arrays for events, types, values, and strings
  */
 function generateSpecialEvents(
@@ -226,7 +231,9 @@ function generateSpecialEvents(
   heaterTime: number[],
   heaterValues: number[],
   fanTime: number[],
-  fanValues: number[]
+  fanValues: number[],
+  drumTime: number[],
+  drumValues: number[]
 ): {
   events: number[];
   types: number[];
@@ -289,6 +296,22 @@ function generateSpecialEvents(
       values.push(fanValue / 10);  // Convert 0-100 to 0-10 scale
       strings.push(`${fanValue}%`);  // Format: 50% for 50% speed
       prevFan = fanValue;
+    }
+  }
+  
+  // Process drum changes
+  let prevDrum = -1;
+  for (let i = 0; i < drumTime.length; i++) {
+    const drumValue = Math.round(drumValues[i] * 100);  // Convert 0-1 to 0-100
+    const timeIndex = findTimeIndex(drumTime[i]);
+    
+    // Detect drum change
+    if (drumValue !== prevDrum) {
+      events.push(timeIndex);
+      types.push(1);  // Type 1 = drum
+      values.push(drumValue / 10);  // Convert 0-100 to 0-10 scale
+      strings.push(`D${drumValue}`);  // Format: D60 for 60% drum speed
+      prevDrum = drumValue;
     }
   }
   

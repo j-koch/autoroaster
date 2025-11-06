@@ -24,8 +24,8 @@ declare const ort: any;
 // Chart.js instance for the combined control editor (shows both heater and fan)
 let controlChart: any = null;
 
-// Track which control input is currently being edited
-let activeControl: 'heater' | 'fan' = 'heater';
+  // Track which control input is currently being edited
+  let activeControl: 'heater' | 'fan' | 'drum' = 'heater';
 
 // Track last click time for double-click detection
 let lastClickTime: number = 0;
@@ -376,13 +376,15 @@ export class RecipeGenerator {
       return;
     }
     
-    // Prepare datasets - both heater and fan will be shown
+    // Prepare datasets - heater, fan, and drum will be shown
     const heaterData = this.controlProfile.heater.map(p => ({ x: p.time, y: p.value * 100 }));
     const fanData = this.controlProfile.fan.map(p => ({ x: p.time, y: p.value * 100 }));
+    const drumData = this.controlProfile.drum.map(p => ({ x: p.time, y: p.value * 100 }));
     
-    // Create the combined control chart with both datasets
+    // Create the combined control chart with all three control datasets
     // Dataset 0: Heater (editable when activeControl === 'heater')
     // Dataset 1: Fan (editable when activeControl === 'fan')
+    // Dataset 2: Drum (editable when activeControl === 'drum')
     controlChart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -407,6 +409,20 @@ export class RecipeGenerator {
             borderColor: '#3498db',
             backgroundColor: 'rgba(52, 152, 219, 0.1)',
             pointBackgroundColor: '#3498db',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 2,
+            stepped: 'before',
+            fill: false
+          },
+          {
+            label: 'Drum',
+            data: drumData,
+            borderColor: '#9b59b6',
+            backgroundColor: 'rgba(155, 89, 182, 0.1)',
+            pointBackgroundColor: '#9b59b6',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
             pointRadius: 8,
@@ -440,13 +456,13 @@ export class RecipeGenerator {
             dragX: true,  // Enable horizontal (time) dragging
             // Callback before dragging starts - return false to prevent drag
             onDragStart: (_e: any, datasetIndex: number, _index: number, _value: any) => {
-              // Only allow dragging control datasets (0 and 1), not temperature datasets (2+)
-              if (datasetIndex >= 2) {
+              // Only allow dragging control datasets (0, 1, 2), not temperature datasets (3+)
+              if (datasetIndex >= 3) {
                 return false; // Temperature datasets are not draggable
               }
               
               // Only allow dragging the active control
-              const controlName = datasetIndex === 0 ? 'heater' : 'fan';
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
               if (controlName !== activeControl) {
                 return false; // Prevent dragging inactive control
               }
@@ -455,16 +471,28 @@ export class RecipeGenerator {
             },
             // Callback when dragging a point
             onDrag: (_e: any, datasetIndex: number, index: number, value: any) => {
-              // This should only be called for the active control due to onDragStart filtering
-              const controlName = datasetIndex === 0 ? 'heater' : 'fan';
+              // Map dataset index to control name
+              // Dataset 0 = Heater, Dataset 1 = Fan, Dataset 2 = Drum
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
               
               const points = this.controlProfile[controlName];
               
-              // Simply constrain to valid ranges - allow free movement
-              // X (time) constrained to 0 to duration
-              const constrainedX = Math.max(0, Math.min(this.durationSeconds, value.x));
+              // ANCHOR FIRST AND LAST POINTS: They should remain at time 0 and durationSeconds
+              // First point (index 0) must stay at time = 0
+              // Last point (index = points.length - 1) must stay at time = durationSeconds
+              let constrainedX: number;
+              if (index === 0) {
+                // First point: anchor at time = 0, only allow vertical (value) movement
+                constrainedX = 0;
+              } else if (index === points.length - 1) {
+                // Last point: anchor at time = durationSeconds, only allow vertical (value) movement
+                constrainedX = this.durationSeconds;
+              } else {
+                // Middle points: allow horizontal movement but constrain to 0 to duration
+                constrainedX = Math.max(0, Math.min(this.durationSeconds, value.x));
+              }
               
-              // Y (power) constrained to 0-100%
+              // Y (power) constrained to 0-100% for all points
               const constrainedY = Math.max(0, Math.min(1, value.y / 100));
               
               // Update the point with constrained values
@@ -472,7 +500,7 @@ export class RecipeGenerator {
               points[index].value = constrainedY;
               
               // Sort points by time to maintain proper order
-              // This allows points to naturally "swap" positions when dragged past each other
+              // This allows middle points to naturally "swap" positions when dragged past each other
               points.sort((a, b) => a.time - b.time);
               
               // Update the chart data with sorted points
@@ -564,10 +592,10 @@ export class RecipeGenerator {
             if (activeElements.length > 0) {
               const element = activeElements[0];
               const datasetIndex = element.datasetIndex;
-              const controlName = datasetIndex === 0 ? 'heater' : 'fan';
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
               
-              // Only allow removing points from the active control
-              if (controlName === activeControl) {
+              // Only allow removing points from the active control (only control datasets 0-2)
+              if (datasetIndex < 3 && controlName === activeControl) {
                 this.removeControlPoint(controlName, element.index);
               }
             }
@@ -586,7 +614,7 @@ export class RecipeGenerator {
   }
   
   /**
-   * Set up control selector buttons to switch between heater and fan editing
+   * Set up control selector buttons to switch between heater, fan, and drum editing
    */
   private setupControlSelector(): void {
     const buttons = document.querySelectorAll('.control-selector-btn');
@@ -594,7 +622,7 @@ export class RecipeGenerator {
     buttons.forEach(button => {
       button.addEventListener('click', (e) => {
         const btn = e.target as HTMLButtonElement;
-        const control = btn.getAttribute('data-control') as 'heater' | 'fan';
+        const control = btn.getAttribute('data-control') as 'heater' | 'fan' | 'drum';
         
         if (!control) return;
         
@@ -616,43 +644,54 @@ export class RecipeGenerator {
   /**
    * Update the visual appearance of control datasets to indicate active/inactive state
    * Active control has larger, more prominent points
-   * Inactive control has smaller, more transparent points
+   * Inactive controls have smaller, more transparent points
    */
   private updateControlVisuals(): void {
-    if (!controlChart || !controlChart.data.datasets) return;
+    if (!controlChart || !controlChart.data.datasets || controlChart.data.datasets.length < 3) return;
     
-    // Heater is dataset 0, Fan is dataset 1
+    // Heater is dataset 0, Fan is dataset 1, Drum is dataset 2
     const heaterDataset = controlChart.data.datasets[0];
     const fanDataset = controlChart.data.datasets[1];
+    const drumDataset = controlChart.data.datasets[2];
     
+    // Set all to inactive state first
+    heaterDataset.pointRadius = 5;
+    heaterDataset.pointHoverRadius = 7;
+    heaterDataset.borderWidth = 1.5;
+    heaterDataset.pointBackgroundColor = 'rgba(231, 76, 60, 0.5)';
+    heaterDataset.borderColor = 'rgba(231, 76, 60, 0.5)';
+    
+    fanDataset.pointRadius = 5;
+    fanDataset.pointHoverRadius = 7;
+    fanDataset.borderWidth = 1.5;
+    fanDataset.pointBackgroundColor = 'rgba(52, 152, 219, 0.5)';
+    fanDataset.borderColor = 'rgba(52, 152, 219, 0.5)';
+    
+    drumDataset.pointRadius = 5;
+    drumDataset.pointHoverRadius = 7;
+    drumDataset.borderWidth = 1.5;
+    drumDataset.pointBackgroundColor = 'rgba(155, 89, 182, 0.5)';
+    drumDataset.borderColor = 'rgba(155, 89, 182, 0.5)';
+    
+    // Make the active control prominent
     if (activeControl === 'heater') {
-      // Heater is active - make it prominent
       heaterDataset.pointRadius = 8;
       heaterDataset.pointHoverRadius = 10;
       heaterDataset.borderWidth = 2;
       heaterDataset.pointBackgroundColor = '#e74c3c';
       heaterDataset.borderColor = '#e74c3c';
-      
-      // Fan is inactive - make it subtle
-      fanDataset.pointRadius = 5;
-      fanDataset.pointHoverRadius = 7;
-      fanDataset.borderWidth = 1.5;
-      fanDataset.pointBackgroundColor = 'rgba(52, 152, 219, 0.5)';
-      fanDataset.borderColor = 'rgba(52, 152, 219, 0.5)';
-    } else {
-      // Fan is active - make it prominent
+    } else if (activeControl === 'fan') {
       fanDataset.pointRadius = 8;
       fanDataset.pointHoverRadius = 10;
       fanDataset.borderWidth = 2;
       fanDataset.pointBackgroundColor = '#3498db';
       fanDataset.borderColor = '#3498db';
-      
-      // Heater is inactive - make it subtle
-      heaterDataset.pointRadius = 5;
-      heaterDataset.pointHoverRadius = 7;
-      heaterDataset.borderWidth = 1.5;
-      heaterDataset.pointBackgroundColor = 'rgba(231, 76, 60, 0.5)';
-      heaterDataset.borderColor = 'rgba(231, 76, 60, 0.5)';
+    } else if (activeControl === 'drum') {
+      drumDataset.pointRadius = 8;
+      drumDataset.pointHoverRadius = 10;
+      drumDataset.borderWidth = 2;
+      drumDataset.pointBackgroundColor = '#9b59b6';
+      drumDataset.borderColor = '#9b59b6';
     }
     
     controlChart.update();
@@ -683,10 +722,10 @@ export class RecipeGenerator {
   
   /**
    * Remove a control point
-   * @param controlInput - Which control input ('heater' or 'fan')
+   * @param controlInput - Which control input ('heater', 'fan', or 'drum')
    * @param pointIndex - Index of the point in the control array
    */
-  private removeControlPoint(controlInput: 'heater' | 'fan', pointIndex: number): void {
+  private removeControlPoint(controlInput: 'heater' | 'fan' | 'drum', pointIndex: number): void {
     // Don't allow removing first or last point
     const points = this.controlProfile[controlInput];
     if (pointIndex === 0 || pointIndex === points.length - 1) {
@@ -706,7 +745,7 @@ export class RecipeGenerator {
   
   /**
    * Update the control editor chart with current control profile data
-   * Updates both heater and fan datasets in the combined chart
+   * Updates heater, fan, and drum datasets in the combined chart
    */
   private updateControlEditor(): void {
     if (controlChart) {
@@ -718,6 +757,12 @@ export class RecipeGenerator {
       
       // Update fan dataset (index 1)
       controlChart.data.datasets[1].data = this.controlProfile.fan.map(p => ({ 
+        x: p.time, 
+        y: p.value * 100 
+      }));
+      
+      // Update drum dataset (index 2)
+      controlChart.data.datasets[2].data = this.controlProfile.drum.map(p => ({ 
         x: p.time, 
         y: p.value * 100 
       }));
@@ -817,6 +862,7 @@ export class RecipeGenerator {
         // Get control values at this time from the control profile
         const heaterValue = this.getControlValueAtTime('heater', currentTime); // 0-1
         const fanValue = this.getControlValueAtTime('fan', currentTime);       // 0-1
+        const drumValue = this.getControlValueAtTime('drum', currentTime);     // 0-1
         
         // Get bean thermal capacity from bean model
         // Bean model input: bean_temperature (normalized)
@@ -831,7 +877,7 @@ export class RecipeGenerator {
         const stepperControls = new Float32Array(7);
         stepperControls[0] = heaterValue;  // Heater power (already 0-1, no scaling needed)
         stepperControls[1] = fanValue;     // Fan speed (already 0-1, no scaling needed)
-        stepperControls[2] = this.fixedParams.drum;  // Drum speed (fixed at 0.6)
+        stepperControls[2] = drumValue;    // Drum speed from control profile (0-1)
         stepperControls[3] = this.ambientTempC / this.scalingFactors.controls.ambient;  // Ambient temp (normalized)
         stepperControls[4] = this.fixedParams.humidity;  // Humidity (already normalized)
         stepperControls[5] = this.beanMassG / this.scalingFactors.mass;  // Bean mass (normalized)
@@ -904,11 +950,12 @@ export class RecipeGenerator {
   private renderTemperatureChart(): void {
     if (!this.simulatedResults || !controlChart) return;
     
-    // Get current control datasets (heater and fan are datasets 0 and 1)
+    // Get current control datasets (heater, fan, and drum are datasets 0, 1, 2)
     // Ensure datasets exist before accessing them
-    if (!controlChart.data.datasets || controlChart.data.datasets.length < 2) return;
+    if (!controlChart.data.datasets || controlChart.data.datasets.length < 3) return;
     const heaterDataset = controlChart.data.datasets[0];
     const fanDataset = controlChart.data.datasets[1];
+    const drumDataset = controlChart.data.datasets[2];
     
     // Calculate Rate of Rise (RoR) - derivative of bean temperature
     // RoR is expressed in °C/min
@@ -994,8 +1041,8 @@ export class RecipeGenerator {
       }
     ];
     
-    // Update the chart datasets - keep controls (0-1) and add temperatures (2-5)
-    controlChart.data.datasets = [heaterDataset, fanDataset, ...tempDatasets];
+    // Update the chart datasets - keep controls (0-2) and add temperatures (3-7)
+    controlChart.data.datasets = [heaterDataset, fanDataset, drumDataset, ...tempDatasets];
     
     // Update y-axis to accommodate both control values (0-100) and temperatures (0-350)
     controlChart.options.scales.y.max = 350;
@@ -1028,7 +1075,8 @@ export class RecipeGenerator {
       // Check if this is RoR, control, or temperature
       if (label.includes('RoR')) {
         label += context.parsed.y.toFixed(1) + ' °C/min';
-      } else if (datasetIndex < 2) {
+      } else if (datasetIndex < 3) {
+        // Datasets 0-2 are controls (heater, fan, drum)
         label += context.parsed.y.toFixed(1) + '%';
       } else {
         label += context.parsed.y.toFixed(1) + '°C';
@@ -1128,9 +1176,9 @@ export class RecipeGenerator {
     // Update UI - reset the control editor and clear temperature traces from combined chart
     this.updateControlEditor();
     
-    // Clear temperature datasets from the combined chart (keep only control datasets 0 and 1)
-    if (controlChart && controlChart.data.datasets.length > 2) {
-      controlChart.data.datasets = controlChart.data.datasets.slice(0, 2);
+    // Clear temperature datasets from the combined chart (keep only control datasets 0-2)
+    if (controlChart && controlChart.data.datasets.length > 3) {
+      controlChart.data.datasets = controlChart.data.datasets.slice(0, 3);
       controlChart.options.scales.y.max = 100; // Reset y-axis to control range
       controlChart.options.scales.y.title.text = 'Power (%)';
       controlChart.update();

@@ -426,7 +426,7 @@ export class RecipeVisualizer {
       });
     });
     
-    // Add control datasets for each recipe (heater and fan)
+    // Add control datasets for each recipe (heater, fan, and drum)
     // These are on 0-100 scale and will appear below temperature traces
     recipes.forEach((recipe, idx) => {
       const baseColor = this.getColorForIndex(idx);
@@ -459,6 +459,23 @@ export class RecipeVisualizer {
         backgroundColor: this.adjustColorOpacity(baseColor, 0.7),
         borderWidth: 2,
         borderDash: [5, 5],  // Dashed line pattern
+        pointRadius: 0,
+        stepped: 'before',  // Step function: value changes AT the control point
+        fill: false
+      });
+      
+      // Drum control (dotted line, piecewise constant/step function)
+      // Controls are stored as discrete events with their own time arrays
+      datasets.push({
+        label: `${recipe.name} - Drum`,
+        data: recipe.control_profile.drum.time.map((t, i) => ({
+          x: t,
+          y: recipe.control_profile.drum.values[i] * 100  // Convert 0-1 to 0-100%
+        })),
+        borderColor: this.adjustColorOpacity(baseColor, 0.7),
+        backgroundColor: this.adjustColorOpacity(baseColor, 0.7),
+        borderWidth: 2,
+        borderDash: [2, 2],  // Dotted line pattern (different from fan's dashed)
         pointRadius: 0,
         stepped: 'before',  // Step function: value changes AT the control point
         fill: false
@@ -506,7 +523,7 @@ export class RecipeVisualizer {
                 // Check if this is RoR, control, or temperature
                 if (label.includes('RoR')) {
                   label += context.parsed.y.toFixed(1) + ' °C/min';
-                } else if (label.includes('Heater') || label.includes('Fan')) {
+                } else if (label.includes('Heater') || label.includes('Fan') || label.includes('Drum')) {
                   label += context.parsed.y.toFixed(1) + '%';
                 } else {
                   label += context.parsed.y.toFixed(1) + '°C';

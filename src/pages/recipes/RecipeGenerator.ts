@@ -478,13 +478,17 @@ export class RecipeGenerator {
               const points = this.controlProfile[controlName];
               
               // ANCHOR FIRST AND LAST POINTS: They should remain at time 0 and durationSeconds
-              // First point (index 0) must stay at time = 0
-              // Last point (index = points.length - 1) must stay at time = durationSeconds
+              // We identify first/last by checking if current point is at time 0 or durationSeconds
+              // This is more robust than using array indices which can shift during sorting
+              const currentPoint = points[index];
+              const isFirstPoint = currentPoint.time === 0;
+              const isLastPoint = currentPoint.time === this.durationSeconds;
+              
               let constrainedX: number;
-              if (index === 0) {
+              if (isFirstPoint) {
                 // First point: anchor at time = 0, only allow vertical (value) movement
                 constrainedX = 0;
-              } else if (index === points.length - 1) {
+              } else if (isLastPoint) {
                 // Last point: anchor at time = durationSeconds, only allow vertical (value) movement
                 constrainedX = this.durationSeconds;
               } else {
@@ -496,16 +500,9 @@ export class RecipeGenerator {
               const constrainedY = Math.max(0, Math.min(1, value.y / 100));
               
               // Update the point with constrained values
+              // Note: We don't sort here to avoid confusing the dragData plugin with changing indices
               points[index].time = constrainedX;
               points[index].value = constrainedY;
-              
-              // Sort points by time to maintain proper order
-              // This allows middle points to naturally "swap" positions when dragged past each other
-              points.sort((a, b) => a.time - b.time);
-              
-              // Update the chart data with sorted points
-              const sortedData = points.map(p => ({ x: p.time, y: p.value * 100 }));
-              controlChart.data.datasets[datasetIndex].data = sortedData;
               
               // Return constrained values to update the chart visually
               return {
@@ -513,8 +510,22 @@ export class RecipeGenerator {
                 y: constrainedY * 100
               };
             },
-            onDragEnd: (_e: any, datasetIndex: number, index: number, value: any) => {
-              console.log('Drag complete:', { datasetIndex, index, value });
+            onDragEnd: (_e: any, datasetIndex: number, _index: number, _value: any) => {
+              // Map dataset index to control name
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
+              const points = this.controlProfile[controlName];
+              
+              // After dragging is complete, sort points by time to maintain proper order
+              // This ensures middle points are in the correct sequence if they were dragged past each other
+              points.sort((a, b) => a.time - b.time);
+              
+              // Update the chart data with sorted points
+              const sortedData = points.map(p => ({ x: p.time, y: p.value * 100 }));
+              controlChart.data.datasets[datasetIndex].data = sortedData;
+              controlChart.update();
+              
+              console.log('Drag complete - points sorted');
+              
               // Automatically simulate after dragging
               this.simulateProfile();
             }

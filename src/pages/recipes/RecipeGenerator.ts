@@ -1084,6 +1084,13 @@ export class RecipeGenerator {
       if (!user) throw new Error('Not authenticated');
       
       // Prepare recipe data
+      // IMPORTANT: Save control profile as discrete events (raw control points),
+      // NOT as interpolated curves. This preserves the piecewise constant nature
+      // of the control signals.
+      //
+      // Each control (heater, fan, drum) has its own time array since they can
+      // have control changes at different times. The .alog generator will handle
+      // interpolating these to a common timeline.
       const recipeData = {
         user_id: user.id,
         name: this.recipeName,
@@ -1093,10 +1100,19 @@ export class RecipeGenerator {
         roaster_model_id: this.selectedRoasterModelId,
         bean_model_id: this.selectedBeanModelId,
         control_profile: {
-          time: this.interpolateSpline(this.controlProfile.heater).map(p => p.time),
-          heater: this.interpolateSpline(this.controlProfile.heater).map(p => p.value),
-          fan: this.interpolateSpline(this.controlProfile.fan).map(p => p.value),
-          drum: this.interpolateSpline(this.controlProfile.drum).map(p => p.value)
+          // Store each control with its own time array as discrete events
+          heater: {
+            time: this.controlProfile.heater.map(p => p.time),
+            values: this.controlProfile.heater.map(p => p.value)
+          },
+          fan: {
+            time: this.controlProfile.fan.map(p => p.time),
+            values: this.controlProfile.fan.map(p => p.value)
+          },
+          drum: {
+            time: this.controlProfile.drum.map(p => p.time),
+            values: this.controlProfile.drum.map(p => p.value)
+          }
         },
         simulated_results: this.simulatedResults,
         target_temp_c: this.simulatedResults.bean_temp[this.simulatedResults.bean_temp.length - 1]

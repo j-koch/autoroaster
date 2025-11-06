@@ -12,6 +12,7 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { generateAlogFile, downloadAlogFile } from '../../data/alogGenerator';
 
 // Chart.js is loaded via CDN in the HTML
 // TypeScript declaration for Chart
@@ -31,12 +32,20 @@ interface Recipe {
   ambient_temp_c: number;
   roaster_model_id: string;
   bean_model_id: string;
-  // Control profiles are arrays of values over time (shape: [time_steps])
+  // Control profiles: each control has its own time array (discrete events)
   control_profile: {
-    time: number[];          // Time in seconds for each control point
-    heater: number[];        // Heater power (0-1)
-    fan: number[];           // Fan speed (0-1)
-    drum: number[];          // Drum speed (0-1, typically constant)
+    heater: {
+      time: number[];      // Time points for heater changes (seconds)
+      values: number[];    // Heater power values (0-1) at each time point
+    };
+    fan: {
+      time: number[];      // Time points for fan changes (seconds)
+      values: number[];    // Fan speed values (0-1) at each time point
+    };
+    drum: {
+      time: number[];      // Time points for drum changes (seconds)
+      values: number[];    // Drum speed values (0-1) at each time point
+    };
   };
   // Simulated results are the predicted temperature profiles
   simulated_results: {
@@ -227,6 +236,13 @@ export class RecipeVisualizer {
     visualizeBtn.addEventListener('click', () => this.visualizeRecipe(recipe.id));
     actionsCell.appendChild(visualizeBtn);
     
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = '⬇️ .alog';
+    downloadBtn.className = 'btn-download';
+    downloadBtn.title = 'Download as Artisan .alog file';
+    downloadBtn.addEventListener('click', () => this.downloadRecipeAsAlog(recipe.id));
+    actionsCell.appendChild(downloadBtn);
+    
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = '🗑 Delete';
     deleteBtn.className = 'btn-delete';
@@ -415,34 +431,36 @@ export class RecipeVisualizer {
     recipes.forEach((recipe, idx) => {
       const baseColor = this.getColorForIndex(idx);
       
-      // Heater control (solid line)
+      // Heater control (solid line, piecewise constant/step function)
+      // Controls are stored as discrete events with their own time arrays
       datasets.push({
         label: `${recipe.name} - Heater`,
-        data: recipe.control_profile.time.map((t, i) => ({
+        data: recipe.control_profile.heater.time.map((t, i) => ({
           x: t,
-          y: recipe.control_profile.heater[i] * 100  // Convert 0-1 to 0-100%
+          y: recipe.control_profile.heater.values[i] * 100  // Convert 0-1 to 0-100%
         })),
         borderColor: this.adjustColorOpacity(baseColor, 0.7),
         backgroundColor: this.adjustColorOpacity(baseColor, 0.7),
         borderWidth: 2,
         pointRadius: 0,
-        tension: 0.1,
+        stepped: 'before',  // Step function: value changes AT the control point
         fill: false
       });
       
-      // Fan control (dashed line)
+      // Fan control (dashed line, piecewise constant/step function)
+      // Controls are stored as discrete events with their own time arrays
       datasets.push({
         label: `${recipe.name} - Fan`,
-        data: recipe.control_profile.time.map((t, i) => ({
+        data: recipe.control_profile.fan.time.map((t, i) => ({
           x: t,
-          y: recipe.control_profile.fan[i] * 100  // Convert 0-1 to 0-100%
+          y: recipe.control_profile.fan.values[i] * 100  // Convert 0-1 to 0-100%
         })),
         borderColor: this.adjustColorOpacity(baseColor, 0.7),
         backgroundColor: this.adjustColorOpacity(baseColor, 0.7),
         borderWidth: 2,
         borderDash: [5, 5],  // Dashed line pattern
         pointRadius: 0,
-        tension: 0.1,
+        stepped: 'before',  // Step function: value changes AT the control point
         fill: false
       });
     });
@@ -562,6 +580,39 @@ export class RecipeVisualizer {
   private getColorForIndex(idx: number): string {
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c'];
     return colors[idx % colors.length];
+  }
+  
+  /**
+   * Download recipe as Artisan .alog file
+   * 
+   * Converts the recipe data to .alog format and triggers a download.
+   * This allows users to import their AutoRoaster recipes into Artisan software.
+   * 
+   * @param recipeId - ID of the recipe to download
+   */
+  private downloadRecipeAsAlog(recipeId: string): void {
+    // Find the recipe in our loaded recipes array
+    const recipe = this.recipes.find(r => r.id === recipeId);
+    
+    if (!recipe) {
+      console.error('Recipe not found:', recipeId);
+      alert('Recipe not found. Please try refreshing the page.');
+      return;
+    }
+    
+    try {
+      // Generate .alog file content from recipe data
+      const alogContent = generateAlogFile(recipe);
+      
+      // Trigger download with recipe name as filename
+      downloadAlogFile(alogContent, recipe.name);
+      
+      console.log(`Downloaded recipe "${recipe.name}" as .alog file`);
+      
+    } catch (error) {
+      console.error('Failed to generate .alog file:', error);
+      alert(`Failed to generate .alog file: ${(error as Error).message}`);
+    }
   }
   
   /**

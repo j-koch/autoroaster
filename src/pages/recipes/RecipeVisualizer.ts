@@ -32,6 +32,9 @@ interface Recipe {
   ambient_temp_c: number;
   roaster_model_id: string;
   bean_model_id: string;
+  // Model names fetched via join
+  roaster_model_name?: string;
+  bean_model_name?: string;
   // Control profiles: each control has its own time array (discrete events)
   control_profile: {
     heater: {
@@ -135,17 +138,29 @@ export class RecipeVisualizer {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
       
-      // Query recipes from database
-      // Note: recipes table needs to be created in Supabase
+      // Query recipes from database with model names via join
+      // We fetch the job_name from training_jobs for both roaster and bean models
       const { data, error } = await supabase
         .from('recipes')
-        .select('*')
+        .select(`
+          *,
+          roaster_model:training_jobs!recipes_roaster_model_id_fkey(job_name),
+          bean_model:training_jobs!recipes_bean_model_id_fkey(job_name)
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      this.recipes = (data as Recipe[]) || [];
+      // Process the joined data to extract model names
+      // The join returns nested objects like { roaster_model: { job_name: 'name' } }
+      const processedData = (data || []).map((recipe: any) => ({
+        ...recipe,
+        roaster_model_name: recipe.roaster_model?.job_name || 'Unknown',
+        bean_model_name: recipe.bean_model?.job_name || 'Unknown'
+      }));
+      
+      this.recipes = processedData as Recipe[];
       
       this.loadingDiv.style.display = 'none';
       
@@ -226,6 +241,23 @@ export class RecipeVisualizer {
     const massCell = document.createElement('td');
     massCell.textContent = `${recipe.bean_mass_g}g`;
     row.appendChild(massCell);
+    
+    // Ambient temperature
+    const ambientTempCell = document.createElement('td');
+    ambientTempCell.textContent = `${recipe.ambient_temp_c}°C`;
+    row.appendChild(ambientTempCell);
+    
+    // Roaster model name
+    const roasterModelCell = document.createElement('td');
+    roasterModelCell.textContent = recipe.roaster_model_name || 'Unknown';
+    roasterModelCell.title = `Model ID: ${recipe.roaster_model_id.slice(0, 8)}...`;
+    row.appendChild(roasterModelCell);
+    
+    // Bean model name
+    const beanModelCell = document.createElement('td');
+    beanModelCell.textContent = recipe.bean_model_name || 'Unknown';
+    beanModelCell.title = `Model ID: ${recipe.bean_model_id.slice(0, 8)}...`;
+    row.appendChild(beanModelCell);
     
     // Actions
     const actionsCell = document.createElement('td');

@@ -875,37 +875,6 @@ export class RecipeGenerator {
   }
   
   /**
-   * Interpolate control points to create a smooth spline curve
-   * Uses simple linear interpolation between points
-   * @param points - Array of control points
-   * @returns Array of interpolated points for smooth visualization
-   */
-  private interpolateSpline(points: ControlPoint[]): ControlPoint[] {
-    // Sort points by time
-    const sortedPoints = [...points].sort((a, b) => a.time - b.time);
-    
-    const interpolated: ControlPoint[] = [];
-    const step = 1; // 1 second intervals
-    
-    for (let i = 0; i < sortedPoints.length - 1; i++) {
-      const p1 = sortedPoints[i];
-      const p2 = sortedPoints[i + 1];
-      
-      // Linear interpolation between p1 and p2
-      for (let t = p1.time; t < p2.time; t += step) {
-        const fraction = (t - p1.time) / (p2.time - p1.time);
-        const value = p1.value + fraction * (p2.value - p1.value);
-        interpolated.push({ time: t, value });
-      }
-    }
-    
-    // Add the last point
-    interpolated.push(sortedPoints[sortedPoints.length - 1]);
-    
-    return interpolated;
-  }
-  
-  /**
    * Get control value at a specific time using step function (piecewise constant)
    * With 'before' stepping: the value changes AT the control point
    * @param input - Control input type ('heater', 'fan', 'drum')

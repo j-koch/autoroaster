@@ -77,6 +77,7 @@ export class RecipeGenerator {
   // Recipe parameters
   private beanMassG: number = 150;
   private ambientTempC: number = 24;
+  private preheatTempC: number = 180;  // Initial bean probe temperature (adjustable)
   private durationSeconds: number = 600;
   private recipeName: string = 'Untitled Recipe';
   
@@ -152,6 +153,8 @@ export class RecipeGenerator {
   private readonly massValue: HTMLSpanElement;
   private readonly ambientSlider: HTMLInputElement;
   private readonly ambientValue: HTMLSpanElement;
+  private readonly preheatSlider: HTMLInputElement;
+  private readonly preheatValue: HTMLSpanElement;
   private readonly durationInput: HTMLInputElement;
   
   // Action buttons
@@ -178,6 +181,8 @@ export class RecipeGenerator {
     this.massValue = document.getElementById('generator-mass-value') as HTMLSpanElement;
     this.ambientSlider = document.getElementById('generator-ambient-slider') as HTMLInputElement;
     this.ambientValue = document.getElementById('generator-ambient-value') as HTMLSpanElement;
+    this.preheatSlider = document.getElementById('generator-preheat-slider') as HTMLInputElement;
+    this.preheatValue = document.getElementById('generator-preheat-value') as HTMLSpanElement;
     this.durationInput = document.getElementById('generator-duration') as HTMLInputElement;
     
     this.simulateBtn = document.getElementById('generator-simulate-btn') as HTMLButtonElement;
@@ -229,6 +234,13 @@ export class RecipeGenerator {
       this.ambientTempC = parseFloat((e.target as HTMLInputElement).value);
       this.ambientValue.textContent = `${this.ambientTempC}°C`;
       // Automatically re-run simulation when ambient temperature changes
+      this.simulateProfile();
+    });
+    
+    this.preheatSlider.addEventListener('input', (e) => {
+      this.preheatTempC = parseFloat((e.target as HTMLInputElement).value);
+      this.preheatValue.textContent = `${this.preheatTempC}°C`;
+      // Automatically re-run simulation when preheat temperature changes
       this.simulateProfile();
     });
     
@@ -828,11 +840,12 @@ export class RecipeGenerator {
       
       // Initialize state with preheat conditions (matching RoasterSimulator)
       // State vector: [T_r, T_b, T_air, T_bm, T_atm]
-      const preheatTemp = 180.0; // °C
-      const roomTemp = 25.0; // °C
-      const roasterTemp = preheatTemp + 50.0; // 230°C
-      const airTemp = preheatTemp - 40.0; // 140°C
-      const measuredAirTemp = preheatTemp; // 180°C
+      // Use the adjustable preheat temperature (bean probe initial temperature)
+      const preheatTemp = this.preheatTempC; // Bean probe/measurement temp (adjustable via UI slider)
+      const roomTemp = 25.0; // Bean core starts at room temperature (°C)
+      const roasterTemp = preheatTemp + 50.0; // Roaster/drum temp is typically higher than bean probe (°C)
+      const airTemp = preheatTemp - 40.0; // Air temp is typically lower than bean probe (°C)
+      const measuredAirTemp = preheatTemp; // Measured air/environment temp starts at bean probe temp (°C)
       
       // Normalize using scaling factors
       const tempScale = this.scalingFactors.temperatures.bean;

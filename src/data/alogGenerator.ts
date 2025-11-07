@@ -136,19 +136,56 @@ export function generateAlogFile(recipe: Recipe): string {
   alogContent += `'temp2': ${formatPythonArray(beanTemp)},\n`;
   alogContent += `'temp1': ${formatPythonArray(envTemp)},\n`;
   
-  // Control signals in extratemp arrays
-  // extratemp1: [heater, None, drum_speed]
-  // extratemp2: [fan, ambient_temp, humidity]
+  // Control signals - Artisan uses two arrays for extra channels
+  // extratemp1: [heater, set_value, drum]
+  // extratemp2: [fan, ambient_temp, ambient_humidity]
+  // Artisan uses placeholders for replayable controls:
+  // {3} = heater (type 3, device 141), {0} = fan (type 0, device 139), {1} = drum (type 1, device 140)
+  // 'SV' = Set Value (for display purposes, not replayable)
+  // 'AT' = Ambient Temperature, 'AH' = Ambient Humidity (non-replayable)
+  
+  // extratemp1: Heater, Set Value, Drum
+  // SV (Set Value) represents the initial bean probe temperature before beans are added (charge temp)
+  // This is the temperature reading at the start of the roast, before the beans drop
+  const svValue = beanTemp[0];  // First bean temp measurement (pre-charge temperature)
+  const svArray = new Array(time.length).fill(svValue);
+  
   alogContent += `'extratemp1': [\n`;
   alogContent += `  ${formatPythonArray(heater100)},\n`;
-  alogContent += `  None,\n`;
+  alogContent += `  ${formatPythonArray(svArray)},\n`;  // SV (Set Value / charge temperature)
   alogContent += `  ${formatPythonArray(drum100)}\n`;
   alogContent += `],\n`;
   
+  // extratemp2: Fan, Ambient Temperature, Ambient Humidity
   alogContent += `'extratemp2': [\n`;
   alogContent += `  ${formatPythonArray(fan100)},\n`;
   alogContent += `  ${formatPythonArray(ambientTemp)},\n`;
   alogContent += `  ${formatPythonArray(humidity)}\n`;
+  alogContent += `],\n`;
+  
+  // Extra device IDs - required by Artisan to identify device types
+  // 141 = Heater device, 139 = Fan device, 140 = Drum device
+  alogContent += `'extradevices': [141, 139, 140],\n`;
+  
+  // Labels for extra temperature channels with Artisan placeholders for replay
+  // extraname1: Heater {3}, Set Value (SV), Drum {1}
+  alogContent += `'extraname1': ['{3}', 'SV', '{1}'],\n`;
+  // extraname2: Fan {0}, Ambient Temp (AT), Ambient Humidity (AH)
+  alogContent += `'extraname2': ['{0}', 'AT', 'AH'],\n`;
+  
+  // Time arrays for extra temperature channels
+  // extratimex contains time arrays for all channels in extratemp1
+  alogContent += `'extratimex': [\n`;
+  alogContent += `  ${formatPythonArray(time)},\n`;
+  alogContent += `  ${formatPythonArray(time)},\n`;
+  alogContent += `  ${formatPythonArray(time)}\n`;
+  alogContent += `],\n`;
+  
+  // Time arrays for extratemp2 channels
+  alogContent += `'extratimex2': [\n`;
+  alogContent += `  ${formatPythonArray(time)},\n`;
+  alogContent += `  ${formatPythonArray(time)},\n`;
+  alogContent += `  ${formatPythonArray(time)}\n`;
   alogContent += `],\n`;
   
   // Special events: encode control changes as discrete events

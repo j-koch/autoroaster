@@ -1600,11 +1600,32 @@ async function deleteJob(jobId: string, jobName: string): Promise<void> {
  * @param modelName - Name of the model (for confirmation dialog)
  */
 async function deleteModel(modelId: string, modelName: string): Promise<void> {
-    if (!confirm(`Are you sure you want to delete "${modelName}"?\n\nThis action cannot be undone and will remove the model from your library and delete all associated files.`)) {
-        return;
-    }
-
     try {
+        // First, check if any recipes reference this model
+        // The recipes table has foreign key constraints on roaster_model_id and bean_model_id
+        // that prevent deletion if recipes exist (ON DELETE RESTRICT)
+        const { data: recipesUsingModel, error: recipesCheckError } = await supabase
+            .from('recipes')
+            .select('id, name')
+            .or(`roaster_model_id.eq.${modelId},bean_model_id.eq.${modelId}`);
+
+        if (recipesCheckError) {
+            console.warn('Error checking for recipes:', recipesCheckError);
+            // Continue anyway - the deletion will fail if there are recipes
+        }
+
+        // Build confirmation message based on whether recipes exist
+        let confirmMessage = `Are you sure you want to delete "${modelName}"?\n\nThis action cannot be undone and will remove the model from your library and delete all associated files.`;
+        
+        if (recipesUsingModel && recipesUsingModel.length > 0) {
+            const recipeNames = recipesUsingModel.map(r => r.name).join(', ');
+            confirmMessage = `Warning: This model is being used by ${recipesUsingModel.length} recipe(s): ${recipeNames}\n\nDeleting this model will also delete these recipes.\n\nAre you sure you want to continue?`;
+        }
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
         // First, get the training job details to find the storage path
         const { data: jobData, error: jobError } = await supabase
             .from('training_jobs')
@@ -1613,6 +1634,20 @@ async function deleteModel(modelId: string, modelName: string): Promise<void> {
             .single();
 
         if (jobError) throw jobError;
+
+        // Delete any recipes that reference this model
+        // This must be done before deleting the training job due to foreign key constraints
+        if (recipesUsingModel && recipesUsingModel.length > 0) {
+            console.log(`Deleting ${recipesUsingModel.length} recipes that reference this model`);
+            const { error: recipesDeleteError } = await supabase
+                .from('recipes')
+                .delete()
+                .or(`roaster_model_id.eq.${modelId},bean_model_id.eq.${modelId}`);
+
+            if (recipesDeleteError) {
+                throw new Error(`Failed to delete associated recipes: ${recipesDeleteError.message}`);
+            }
+        }
 
         // Storage path format: {user_id}/jobs/{job_id}/
         const storagePath = `${jobData.user_id}/jobs/${modelId}`;

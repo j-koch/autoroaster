@@ -451,6 +451,39 @@ function displayModelInspection(model: TrainingJob): void {
             `;
         }
         
+        // Check if evaluation metrics are available
+        const evalMetrics = (model as any).evaluation_metrics;
+        let evalSectionHTML = '';
+        
+        if (evalMetrics && evalMetrics.avg_mape !== undefined) {
+            evalSectionHTML = `
+                <div class="detail-section">
+                    <h4>Evaluation Metrics</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Mean Average Percent Error (MAPE)</div>
+                            <div class="detail-value" style="font-weight: bold; color: #8B4513;">${evalMetrics.avg_mape.toFixed(2)}%</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Mean Absolute Error (MAE)</div>
+                            <div class="detail-value">${evalMetrics.avg_mae.toFixed(2)}°C</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Root Mean Square Error (RMSE)</div>
+                            <div class="detail-value">${evalMetrics.avg_rmse.toFixed(2)}°C</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Roasts Evaluated</div>
+                            <div class="detail-value">${evalMetrics.num_roasts_evaluated}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; font-size: 13px; color: #666;">
+                        <strong>About MAPE:</strong> Mean Average Percent Error measures the open-loop roast reconstruction accuracy across all roasts in the evaluation set. Lower values indicate better model performance.
+                    </div>
+                </div>
+            `;
+        }
+        
         detailsEl.innerHTML = `
             <div class="detail-section">
                 <h4>Training Information</h4>
@@ -481,6 +514,8 @@ function displayModelInspection(model: TrainingJob): void {
                     </div>
                 </div>
             </div>
+            
+            ${evalSectionHTML}
             
             ${configSectionHTML}
             

@@ -87,8 +87,34 @@
 /* Control Selector Buttons */
 .control-selector {
     display: flex;
-    align-items: center;
     gap: 10px;
+    align-items: center;
+}
+
+.artisan-snap-toggle {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+}
+
+.artisan-snap-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    user-select: none;
+}
+
+.artisan-snap-toggle input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.artisan-snap-toggle label:hover {
+    color: #333;
 }
 
 .control-selector label {

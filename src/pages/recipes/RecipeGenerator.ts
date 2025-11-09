@@ -162,6 +162,9 @@ export class RecipeGenerator {
   private readonly saveBtn: HTMLButtonElement;
   private readonly resetBtn: HTMLButtonElement;
   
+  // Artisan snap toggle
+  private readonly artisanSnapCheckbox: HTMLInputElement;
+  
   constructor() {
     console.log('Initializing Recipe Generator...');
     
@@ -188,6 +191,8 @@ export class RecipeGenerator {
     this.simulateBtn = document.getElementById('generator-simulate-btn') as HTMLButtonElement;
     this.saveBtn = document.getElementById('generator-save-btn') as HTMLButtonElement;
     this.resetBtn = document.getElementById('generator-reset-btn') as HTMLButtonElement;
+    
+    this.artisanSnapCheckbox = document.getElementById('artisan-snap-checkbox') as HTMLInputElement;
     
     this.initializeUI();
   }
@@ -509,7 +514,14 @@ export class RecipeGenerator {
               }
               
               // Y (power) constrained to 0-100% for all points
-              const constrainedY = Math.max(0, Math.min(1, value.y / 100));
+              // Normalized to 0-1 range
+              let constrainedY = Math.max(0, Math.min(1, value.y / 100));
+              
+              // Apply Artisan snapping if enabled
+              // Check if the snap checkbox is checked
+              if (this.artisanSnapCheckbox && this.artisanSnapCheckbox.checked) {
+                constrainedY = this.snapToArtisanIncrement(constrainedY);
+              }
               
               // Update the point with constrained values
               // Note: We don't sort here to avoid confusing the dragData plugin with changing indices
@@ -662,6 +674,19 @@ export class RecipeGenerator {
         console.log(`Switched to editing ${control} control`);
       });
     });
+  }
+  
+  /**
+   * Snap a value (0-1) to the nearest Artisan increment (5%)
+   * Artisan's resolution is in 5% increments: 0, 0.05, 0.10, 0.15, ..., 0.95, 1.00
+   * @param value - The value to snap (0-1 scale)
+   * @returns The snapped value
+   */
+  private snapToArtisanIncrement(value: number): number {
+    // Artisan increments are every 5%, so 0.05 in normalized 0-1 scale
+    const increment = 0.05;
+    // Round to nearest increment
+    return Math.round(value / increment) * increment;
   }
   
   /**

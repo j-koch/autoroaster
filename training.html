@@ -142,7 +142,27 @@
             <!-- Training Jobs View -->
             <div id="training-view" class="view">
                 <div class="training-container">
-                    <!-- Left Column: Configure Training -->
+                    <!-- Left Column: Training Jobs Monitor -->
+                    <div class="jobs-column">
+                        <div class="jobs-panel">
+                            <h2>Training Jobs</h2>
+                            
+                            <!-- Job Status Filters -->
+                            <div class="job-filters">
+                                <button class="job-filter-btn active" data-status="all">All</button>
+                                <button class="job-filter-btn" data-status="running">Running</button>
+                                <button class="job-filter-btn" data-status="completed">Completed</button>
+                                <button class="job-filter-btn" data-status="failed">Failed</button>
+                            </div>
+                            
+                            <!-- Jobs List -->
+                            <div id="jobsList" class="jobs-list">
+                                <div class="loading">Loading jobs...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Configure Training -->
                     <div class="config-column">
                         <div class="config-panel">
                             <h2>Configure New Training Job</h2>
@@ -365,26 +385,6 @@
                             <button class="btn-primary" id="start-training-btn" style="width: 100%; margin-top: 20px;">
                                 🚀 Start Training
                             </button>
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Training Jobs Monitor -->
-                    <div class="jobs-column">
-                        <div class="jobs-panel">
-                            <h2>Training Jobs</h2>
-                            
-                            <!-- Job Status Filters -->
-                            <div class="job-filters">
-                                <button class="job-filter-btn active" data-status="all">All</button>
-                                <button class="job-filter-btn" data-status="running">Running</button>
-                                <button class="job-filter-btn" data-status="completed">Completed</button>
-                                <button class="job-filter-btn" data-status="failed">Failed</button>
-                            </div>
-                            
-                            <!-- Jobs List -->
-                            <div id="jobsList" class="jobs-list">
-                                <div class="loading">Loading jobs...</div>
-                            </div>
                         </div>
                     </div>
                 </div>

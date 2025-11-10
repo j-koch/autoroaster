@@ -503,7 +503,7 @@ body {
    ======================================== */
 .training-container {
     display: grid;
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: 1fr 1.2fr;
     gap: 20px;
     height: calc(100vh - 200px);
 }

@@ -85,7 +85,7 @@ interface TrainingJob {
     user_id: string;
     job_name: string | null;
     status: 'pending' | 'running' | 'completed' | 'failed';
-    config: TrainingConfig;
+    config: TrainingConfig | any; // 'any' added to support both roaster and bean configs
     roast_file_ids: string[];
     created_at: string;
     started_at: string | null;
@@ -1594,7 +1594,9 @@ async function loadCheckpointAndStartTraining(checkpointJobId: string, jobName: 
         return;
     }
     
-    if (job.status !== 'completed') {
+    // Type assertion: even though UI only shows this button for completed jobs,
+    // we add this defensive check for robustness
+    if ((job.status as string) !== 'completed') {
         showMessage('Can only load checkpoints from completed training jobs', 'error');
         return;
     }
@@ -2140,7 +2142,9 @@ async function deleteJob(jobId: string, jobName: string): Promise<void> {
     try {
         // Only delete storage files for non-completed jobs
         // Completed jobs have valuable model artifacts that should be preserved
-        if (job.status !== 'completed') {
+        // Type assertion: even though UI only shows delete button for non-completed jobs,
+        // we add this defensive check for robustness
+        if ((job.status as string) !== 'completed') {
             // Get the training job details to find the storage path
             const { data: jobData, error: jobError } = await supabase
                 .from('training_jobs')

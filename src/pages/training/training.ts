@@ -1419,9 +1419,9 @@ function displayJobs(): void {
         // Check if job has loss history to show
         const hasLossHistory = job.loss_history?.total && job.loss_history.total.length > 0;
         
-        // All jobs can now be expanded (to see config), not just those with loss history
+        // All jobs can be manually expanded (to see config and loss history)
         const isRunning = job.status === 'running';
-        const isExpanded = isRunning || expandedJobIds.has(job.id);
+        const isExpanded = expandedJobIds.has(job.id);
         
         // Determine what to show in expanded section
         const hasChartToShow = isRunning || hasLossHistory;
@@ -2229,13 +2229,117 @@ function initModelTypeFilters(): void {
 /**
  * Start periodic refresh of jobs list
  * This keeps the job status and progress updated in real-time
+ * Uses smart updates to avoid full page re-renders
  */
 function startJobsRefresh(): void {
-    setInterval(() => {
-        loadJobs();
-        // Also refresh models in case any jobs completed
-        loadModels();
+    setInterval(async () => {
+        // Fetch updated data without triggering full re-render
+        await refreshJobsData();
+        await refreshModelsData();
     }, 10000); // Refresh every 10 seconds
+}
+
+/**
+ * Refresh jobs data in the background and update UI smartly
+ * Only updates what has changed to avoid flickering
+ */
+async function refreshJobsData(): Promise<void> {
+    try {
+        const { data, error } = await supabase
+            .from('training_jobs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
+
+        if (error) {
+            console.error('Error refreshing jobs:', error);
+            return;
+        }
+
+        const newJobs = data as TrainingJob[];
+        
+        // Check if we need to do a full refresh (job count changed or new job status)
+        if (newJobs.length !== allJobs.length) {
+            // Job count changed - do full refresh
+            allJobs = newJobs;
+            displayJobs();
+            return;
+        }
+        
+        // Check if any job status changed (requires full refresh)
+        let statusChanged = false;
+        for (const newJob of newJobs) {
+            const oldJob = allJobs.find(j => j.id === newJob.id);
+            if (!oldJob || oldJob.status !== newJob.status) {
+                statusChanged = true;
+                break;
+            }
+        }
+        
+        if (statusChanged) {
+            // Status changed - do full refresh
+            allJobs = newJobs;
+            displayJobs();
+            return;
+        }
+        
+        // No major changes - just update running jobs incrementally
+        allJobs = newJobs;
+        
+        // Update only running jobs without full re-render
+        newJobs.forEach(job => {
+            if (job.status === 'running') {
+                updateJobCard(job);
+            }
+        });
+        
+    } catch (error: any) {
+        console.error('Error refreshing jobs data:', error);
+    }
+}
+
+/**
+ * Refresh models data in the background and update UI smartly
+ * Only updates the model list if it has actually changed
+ */
+async function refreshModelsData(): Promise<void> {
+    try {
+        // Only refresh if we're on the models view
+        const modelsView = document.getElementById('models-view');
+        if (!modelsView || !modelsView.classList.contains('active')) {
+            return; // Don't refresh if not viewing models
+        }
+        
+        const { data, error } = await supabase
+            .from('training_jobs')
+            .select('*')
+            .eq('status', 'completed')
+            .order('completed_at', { ascending: false });
+        
+        if (error) {
+            console.error('Error refreshing models:', error);
+            return;
+        }
+        
+        const newModels = data as TrainingJob[];
+        
+        // Apply model type filter
+        const filteredNewModels = filterModelsByType(newModels);
+        
+        // Check if model count changed or we have a new model
+        const currentModelsContainer = document.getElementById('models-list');
+        const currentModelCards = currentModelsContainer?.querySelectorAll('.model-card');
+        const currentModelCount = currentModelCards?.length || 0;
+        
+        if (filteredNewModels.length !== currentModelCount) {
+            // Model count changed - do full refresh
+            displayModels(filteredNewModels);
+        }
+        // If count is the same, we don't need to update (models don't change once completed)
+        
+    } catch (error: any) {
+        console.error('Error refreshing models data:', error);
+    }
 }
 
 // ========================================

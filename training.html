@@ -182,6 +182,17 @@
                                 <input type="text" id="jobName" placeholder="e.g., Ethiopian Beans Model">
                             </div>
                             
+                            <!-- Checkpoint Indicator -->
+                            <div id="checkpointIndicator" style="display: none; background-color: #e8f5e9; border: 2px solid #4caf50; border-radius: 6px; padding: 15px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: bold; color: #2e7d32; margin-bottom: 5px;">⚡ Warm Start from Checkpoint</div>
+                                        <div id="checkpointName" style="color: #555; font-size: 14px;"></div>
+                                    </div>
+                                    <button type="button" id="clearCheckpointBtn" class="btn-small" style="background: #f44336; color: white;">Clear Checkpoint</button>
+                                </div>
+                            </div>
+                            
                             <!-- Bean Training Specific Fields (hidden by default) -->
                             <div id="beanTrainingFields" style="display: none;">
                                 <div class="form-group">

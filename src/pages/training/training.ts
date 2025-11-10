@@ -1198,12 +1198,22 @@ async function startTraining(): Promise<void> {
 
         showMessage('Training job created! Triggering Modal...', 'info');
 
+        // Check if we're warm starting from a checkpoint by reading from the checkpoint indicator
+        const checkpointIndicator = document.getElementById('checkpointIndicator');
+        const checkpointJobId = checkpointIndicator?.getAttribute('data-checkpoint-job-id') || null;
+        
+        // Clear the checkpoint indicator after reading it (training has been initiated)
+        if (checkpointJobId) {
+            clearCheckpoint();
+        }
+
         // Call Supabase Edge Function to trigger Modal
         const response = await supabase.functions.invoke('trigger-training', {
             body: {
                 jobId: job.id,
                 roastFileIds: Array.from(selectedRoastIds),
-                config: config
+                config: config,
+                checkpointJobId: checkpointJobId
             }
         });
 
@@ -1435,7 +1445,9 @@ function displayJobs(): void {
                             ${isExpanded ? '📉 Collapse' : '📊 Expand'}
                         </button>
                         <div class="job-status status-${job.status}">${job.status.toUpperCase()}</div>
-                        ${(job.status === 'running' || job.status === 'pending') ? `
+                        ${job.status === 'completed' ? `
+                            <button class="btn-small btn-load-checkpoint" data-job-id="${job.id}" title="Start new training job from this checkpoint">⚡ Load Checkpoint</button>
+                        ` : (job.status === 'running' || job.status === 'pending') ? `
                             <button class="btn-small btn-terminate" data-job-id="${job.id}">⏹️ Stop</button>
                         ` : `
                             <button class="btn-small btn-delete" data-job-id="${job.id}">🗑️ Delete</button>
@@ -1552,6 +1564,161 @@ function displayJobs(): void {
                 loadJobConfigIntoForm(jobId);
             }
         });
+    });
+    
+    // Add event listeners for load checkpoint buttons (completed jobs only)
+    container.querySelectorAll('.btn-load-checkpoint').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const jobId = (e.target as HTMLElement).getAttribute('data-job-id');
+            if (jobId) {
+                const job = allJobs.find(j => j.id === jobId);
+                if (job) {
+                    await loadCheckpointAndStartTraining(jobId, job.job_name || 'this model');
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Load a checkpoint from a completed training job
+ * This allows warm starting from a previous training session
+ * @param checkpointJobId - ID of the completed job to load checkpoint from
+ * @param jobName - Name of the job (for user messages)
+ */
+async function loadCheckpointAndStartTraining(checkpointJobId: string, jobName: string): Promise<void> {
+    const job = allJobs.find(j => j.id === checkpointJobId);
+    if (!job) {
+        showMessage('Job not found', 'error');
+        return;
+    }
+    
+    if (job.status !== 'completed') {
+        showMessage('Can only load checkpoints from completed training jobs', 'error');
+        return;
+    }
+    
+    try {
+        // Load the configuration into the form
+        loadJobConfigIntoForm(checkpointJobId);
+        
+        // Also pre-select the same roasts that were used in the original training
+        // This is helpful but users can modify the selection if needed
+        selectedRoastIds.clear();
+        job.roast_file_ids.forEach(id => selectedRoastIds.add(id));
+        displayRoasts();
+        
+        // Switch to training view
+        const trainingTab = document.querySelector('.view-tab[data-view="training"]') as HTMLElement;
+        if (trainingTab && !trainingTab.classList.contains('active')) {
+            trainingTab.click();
+        }
+        
+        // Show checkpoint indicator
+        showCheckpointIndicator(checkpointJobId, jobName);
+        
+        // Freeze model architecture fields (data config and model config)
+        freezeModelArchitecture(true);
+        
+        // Scroll to configuration
+        const configPanel = document.querySelector('.config-panel');
+        if (configPanel) {
+            configPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        showMessage(`Checkpoint loaded from "${jobName}"! Model architecture is frozen. You can modify training parameters and data, then click "Start Training" to continue from this checkpoint.`, 'success');
+        
+    } catch (error: any) {
+        console.error('Error loading checkpoint:', error);
+        showMessage(`Failed to load checkpoint: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Show the checkpoint indicator with the loaded checkpoint information
+ * @param checkpointJobId - ID of the checkpoint job
+ * @param jobName - Name of the checkpoint job
+ */
+function showCheckpointIndicator(checkpointJobId: string, jobName: string): void {
+    const indicator = document.getElementById('checkpointIndicator');
+    const checkpointNameEl = document.getElementById('checkpointName');
+    
+    if (indicator && checkpointNameEl) {
+        indicator.style.display = 'block';
+        indicator.setAttribute('data-checkpoint-job-id', checkpointJobId);
+        checkpointNameEl.textContent = `Loading from: ${jobName}`;
+    }
+}
+
+/**
+ * Clear the checkpoint indicator and unfreeze model architecture
+ */
+function clearCheckpoint(): void {
+    const indicator = document.getElementById('checkpointIndicator');
+    
+    if (indicator) {
+        indicator.style.display = 'none';
+        indicator.removeAttribute('data-checkpoint-job-id');
+    }
+    
+    // Unfreeze model architecture fields
+    freezeModelArchitecture(false);
+    
+    showMessage('Checkpoint cleared. You can now modify all model parameters.', 'info');
+}
+
+/**
+ * Freeze or unfreeze model architecture configuration fields
+ * When loading from a checkpoint, the model architecture must remain unchanged
+ * @param freeze - Whether to freeze (true) or unfreeze (false) the fields
+ */
+function freezeModelArchitecture(freeze: boolean): void {
+    // Data configuration fields
+    const dataConfigFields = ['batchSize', 'sequenceLength', 'stride', 'delayHorizon', 'delayPoints'];
+    
+    // Model configuration fields
+    const modelConfigFields = ['nLatents', 'estimatorHidden'];
+    
+    // Loss & regularization fields
+    const lossConfigFields = ['cbWeight', 'chargeWeight', 'airTempWeight'];
+    
+    // Freeze/unfreeze data and model architecture fields
+    [...dataConfigFields, ...modelConfigFields, ...lossConfigFields].forEach(fieldId => {
+        const field = document.getElementById(fieldId) as HTMLInputElement;
+        if (field) {
+            field.disabled = freeze;
+            if (freeze) {
+                field.style.backgroundColor = '#f0f0f0';
+                field.style.cursor = 'not-allowed';
+            } else {
+                field.style.backgroundColor = '';
+                field.style.cursor = '';
+            }
+        }
+    });
+    
+    // Add visual indicator to frozen sections
+    const dataConfigSection = document.querySelector('.config-section') as HTMLDetailsElement;
+    const modelConfigSection = document.querySelectorAll('.config-section')[1] as HTMLDetailsElement;
+    const lossConfigSection = document.querySelectorAll('.config-section')[2] as HTMLDetailsElement;
+    
+    [dataConfigSection, modelConfigSection, lossConfigSection].forEach(section => {
+        if (section) {
+            if (freeze) {
+                section.style.opacity = '0.7';
+                const summary = section.querySelector('summary');
+                if (summary) {
+                    summary.style.color = '#666';
+                }
+            } else {
+                section.style.opacity = '';
+                const summary = section.querySelector('summary');
+                if (summary) {
+                    summary.style.color = '';
+                }
+            }
+        }
     });
 }
 
@@ -1942,7 +2109,8 @@ async function terminateJob(jobId: string, jobName: string): Promise<void> {
 
 /**
  * Delete a training job from the database
- * For completed jobs: Only deletes the database record (preserves model files)
+ * IMPORTANT: Completed jobs cannot be deleted from the jobs view - they must be deleted from the Model Library
+ * This preserves the ability to warm start from completed training jobs
  * For non-completed jobs: Deletes both database record and storage files
  * @param jobId - ID of the job to delete
  * @param jobName - Name of the job (for confirmation dialog)
@@ -1955,13 +2123,15 @@ async function deleteJob(jobId: string, jobName: string): Promise<void> {
         return;
     }
     
-    // Different confirmation messages based on job status
-    let confirmMessage: string;
+    // PREVENT DELETION OF COMPLETED JOBS
+    // Completed jobs must be deleted from the Model Library to ensure checkpoint preservation
     if (job.status === 'completed') {
-        confirmMessage = `Are you sure you want to delete "${jobName}"?\n\nNote: This will only remove the job from this list. The trained model and its files will be preserved in the Model Library.`;
-    } else {
-        confirmMessage = `Are you sure you want to delete "${jobName}"?\n\nThis action cannot be undone and will remove the job record and any associated partial files.`;
+        showMessage('Completed training jobs cannot be deleted here. Please delete from the Model Library if needed.', 'error');
+        return;
     }
+    
+    // Confirmation message for non-completed jobs
+    const confirmMessage = `Are you sure you want to delete "${jobName}"?\n\nThis action cannot be undone and will remove the job record and any associated partial files.`;
     
     if (!confirm(confirmMessage)) {
         return;
@@ -2377,6 +2547,12 @@ async function refreshModelsData(): Promise<void> {
         const startTrainingBtn = document.getElementById('start-training-btn');
         if (startTrainingBtn) {
             startTrainingBtn.addEventListener('click', startTraining);
+        }
+        
+        // Set up clear checkpoint button handler
+        const clearCheckpointBtn = document.getElementById('clearCheckpointBtn');
+        if (clearCheckpointBtn) {
+            clearCheckpointBtn.addEventListener('click', clearCheckpoint);
         }
         
         // Load initial data

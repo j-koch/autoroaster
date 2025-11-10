@@ -675,7 +675,8 @@ function plotLossHistory(lossHistory: { total?: number[], recon?: number[], esti
     });
     
     // Store the chart instance for potential updates
-    chartInstances.set('model-loss-chart', chart);
+    // Type cast to any due to incomplete chartjs-plugin-dragdata type definitions
+    chartInstances.set('model-loss-chart', chart as any);
 }
 
 // ========================================
@@ -2054,7 +2055,8 @@ function plotJobLossHistory(jobId: string, lossHistory: { total?: number[], reco
     });
     
     // Store the chart instance for updates
-    chartInstances.set(chartKey, chart);
+    // Type cast to any due to incomplete chartjs-plugin-dragdata type definitions
+    chartInstances.set(chartKey, chart as any);
 }
 
 /**

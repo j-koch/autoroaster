@@ -15,10 +15,13 @@
  */
 
 import { supabase } from '../../lib/supabase';
+import { Chart, registerables } from 'chart.js';
+import 'chartjs-plugin-dragdata';
 
-// Declare Chart.js and Plotly globals from CDN
-declare const Chart: any;
-declare const Plotly: any;
+// Register Chart.js components including dragdata plugin
+Chart.register(...registerables);
+
+// Declare ONNX Runtime global from CDN
 declare const ort: any;
 
 // Chart.js instance for the combined control editor (shows both heater and fan)
@@ -487,7 +490,9 @@ export class RecipeGenerator {
               return true; // Allow drag to start
             },
             // Callback when dragging a point
-            onDrag: (_e: any, datasetIndex: number, index: number, value: any) => {
+            // Note: The return type is cast to any because chartjs-plugin-dragdata types are incomplete
+            // The plugin actually accepts returning {x, y} to constrain drag values
+            onDrag: ((_e: any, datasetIndex: number, index: number, value: any) => {
               // Map dataset index to control name
               // Dataset 0 = Heater, Dataset 1 = Fan, Dataset 2 = Drum
               const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
@@ -533,7 +538,7 @@ export class RecipeGenerator {
                 x: constrainedX,
                 y: constrainedY * 100
               };
-            },
+            }) as any, // Type cast due to incomplete chartjs-plugin-dragdata type definitions
             onDragEnd: (_e: any, datasetIndex: number, _index: number, _value: any) => {
               // Map dataset index to control name
               const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';

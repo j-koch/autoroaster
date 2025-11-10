@@ -12,7 +12,10 @@
 
 import { supabase } from '../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import Plotly from 'plotly.js-dist-min';
+import { Chart, registerables } from 'chart.js';
+
+// Register Chart.js components
+Chart.register(...registerables);
 
 // ========================================
 // TYPES
@@ -109,6 +112,10 @@ let expandedJobIds = new Set<string>();      // Track which jobs are currently e
 let sysidModels: TrainingJob[] = [];         // Available system ID models for bean training
 let currentTrainingType: 'system_id' | 'bean' = 'system_id'; // Current training type
 let currentModelTypeFilter: 'all' | 'roaster' | 'bean' = 'all'; // Current model type filter
+
+// Chart.js instances - Map of chart container ID to Chart instance
+// This allows us to update charts without recreating them
+const chartInstances: Map<string, Chart> = new Map();
 
 // ========================================
 // AUTHENTICATION
@@ -551,63 +558,124 @@ function displayModelInspection(model: TrainingJob): void {
 }
 
 /**
- * Plot the loss history for a model
+ * Plot the loss history for a model using Chart.js
  * @param lossHistory - Object containing arrays of loss values (total, recon, estim)
  */
 function plotLossHistory(lossHistory: { total?: number[], recon?: number[], estim?: number[] }): void {
     const container = document.getElementById('model-loss-chart');
     if (!container) return;
     
-    const traces: any[] = [];
+    // Clear existing content and create canvas element
+    container.innerHTML = '<canvas id="model-loss-canvas"></canvas>';
+    const canvas = document.getElementById('model-loss-canvas') as HTMLCanvasElement;
+    if (!canvas) return;
     
-    // Total loss trace
+    // Destroy existing chart instance if it exists
+    const existingChart = chartInstances.get('model-loss-chart');
+    if (existingChart) {
+        existingChart.destroy();
+        chartInstances.delete('model-loss-chart');
+    }
+    
+    // Prepare datasets - Chart.js requires data arrays for each dataset
+    const datasets: any[] = [];
+    
+    // Determine the number of epochs (x-axis length) from the longest array
+    const numEpochs = Math.max(
+        lossHistory.total?.length || 0,
+        lossHistory.recon?.length || 0,
+        lossHistory.estim?.length || 0
+    );
+    
+    // Create x-axis labels (epoch numbers)
+    const labels = Array.from({ length: numEpochs }, (_, i) => i + 1);
+    
+    // Total loss dataset
     if (lossHistory.total && lossHistory.total.length > 0) {
-        traces.push({
-            y: lossHistory.total,
-            name: 'Total Loss',
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#8B4513', width: 2 }
+        datasets.push({
+            label: 'Total Loss',
+            data: lossHistory.total,
+            borderColor: '#8B4513',
+            backgroundColor: 'rgba(139, 69, 19, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,  // No point markers for cleaner look
+            tension: 0.1     // Slight curve to the line
         });
     }
     
-    // Reconstruction loss trace
+    // Reconstruction loss dataset
     if (lossHistory.recon && lossHistory.recon.length > 0) {
-        traces.push({
-            y: lossHistory.recon,
-            name: 'Reconstruction Loss',
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#007bff', width: 1.5 }
+        datasets.push({
+            label: 'Reconstruction Loss',
+            data: lossHistory.recon,
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1
         });
     }
     
-    // Estimator loss trace
+    // Estimator loss dataset
     if (lossHistory.estim && lossHistory.estim.length > 0) {
-        traces.push({
-            y: lossHistory.estim,
-            name: 'Estimator Loss',
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#28a745', width: 1.5 }
+        datasets.push({
+            label: 'Estimator Loss',
+            data: lossHistory.estim,
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1
         });
     }
     
-    const layout = {
-        title: 'Training Loss History',
-        xaxis: { title: 'Epoch' },
-        yaxis: { title: 'Loss', type: 'log' as const },
-        autosize: true,
-        height: 300,
-        margin: { l: 60, r: 30, t: 40, b: 40 }
-    };
+    // Create the Chart.js chart with logarithmic y-axis
+    const chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Training Loss History',
+                    font: { size: 14 }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Epoch'
+                    },
+                    grid: {
+                        color: '#e0e0e0'
+                    }
+                },
+                y: {
+                    type: 'logarithmic',  // Logarithmic scale for loss
+                    title: {
+                        display: true,
+                        text: 'Loss (log scale)'
+                    },
+                    grid: {
+                        color: '#e0e0e0'
+                    }
+                }
+            }
+        }
+    });
     
-    const config = {
-        responsive: true,
-        displayModeBar: false
-    };
-    
-    Plotly.newPlot(container, traces, layout, config);
+    // Store the chart instance for potential updates
+    chartInstances.set('model-loss-chart', chart);
 }
 
 // ========================================
@@ -1226,7 +1294,7 @@ function updateJobCard(job: TrainingJob): void {
             const progressFill = progressBar.querySelector('.progress-fill') as HTMLElement;
             if (progressFill) {
                 progressFill.style.width = `${progress}%`;
-                progressFill.textContent = `${progress}%`;
+                progressFill.setAttribute('data-progress', `${progress}%`);
             }
         }
         
@@ -1239,36 +1307,54 @@ function updateJobCard(job: TrainingJob): void {
 }
 
 /**
- * Update the Plotly chart data without destroying and recreating the plot
+ * Update the Chart.js chart data without destroying and recreating the plot
  * This prevents flickering for running jobs
  * @param jobId - ID of the job
  * @param lossHistory - Updated loss history data
  */
 function updateJobLossChart(jobId: string, lossHistory: { total?: number[], recon?: number[], estim?: number[] }): void {
-    const container = document.getElementById(`job-loss-chart-${jobId}`);
-    if (!container) return;
+    const chartKey = `job-loss-chart-${jobId}`;
+    const existingChart = chartInstances.get(chartKey);
     
-    // Check if the plot exists
-    const plotData = (container as any).data;
-    
-    if (plotData && plotData.length > 0) {
-        // Update existing plot data
-        const updates: any = { y: [] };
+    if (existingChart) {
+        // Update existing chart data efficiently
+        // Determine the number of epochs from the longest array
+        const numEpochs = Math.max(
+            lossHistory.total?.length || 0,
+            lossHistory.recon?.length || 0,
+            lossHistory.estim?.length || 0
+        );
+        
+        // Update x-axis labels (epoch numbers)
+        existingChart.data.labels = Array.from({ length: numEpochs }, (_, i) => i + 1);
+        
+        // Update datasets
+        let datasetIndex = 0;
         
         if (lossHistory.total && lossHistory.total.length > 0) {
-            updates.y[0] = lossHistory.total;
-        }
-        if (lossHistory.recon && lossHistory.recon.length > 0) {
-            updates.y[1] = lossHistory.recon;
-        }
-        if (lossHistory.estim && lossHistory.estim.length > 0) {
-            updates.y[2] = lossHistory.estim;
+            if (existingChart.data.datasets[datasetIndex]) {
+                existingChart.data.datasets[datasetIndex].data = lossHistory.total;
+            }
+            datasetIndex++;
         }
         
-        // Use Plotly.update to modify data without full re-render
-        Plotly.update(container, updates, {});
+        if (lossHistory.recon && lossHistory.recon.length > 0) {
+            if (existingChart.data.datasets[datasetIndex]) {
+                existingChart.data.datasets[datasetIndex].data = lossHistory.recon;
+            }
+            datasetIndex++;
+        }
+        
+        if (lossHistory.estim && lossHistory.estim.length > 0) {
+            if (existingChart.data.datasets[datasetIndex]) {
+                existingChart.data.datasets[datasetIndex].data = lossHistory.estim;
+            }
+        }
+        
+        // Update the chart without full re-render
+        existingChart.update('none'); // 'none' mode = no animation for performance
     } else {
-        // Plot doesn't exist yet, create it
+        // Chart doesn't exist yet, create it
         plotJobLossHistory(jobId, lossHistory);
     }
 }
@@ -1333,27 +1419,27 @@ function displayJobs(): void {
         // Check if job has loss history to show
         const hasLossHistory = job.loss_history?.total && job.loss_history.total.length > 0;
         
-        // Running jobs are always expanded, others can be toggled
+        // All jobs can now be expanded (to see config), not just those with loss history
         const isRunning = job.status === 'running';
         const isExpanded = isRunning || expandedJobIds.has(job.id);
         
-        // Running jobs should always have a chart container (even if no data yet)
-        // so that when loss_history arrives via polling, there's a container to update
-        const shouldHaveChartContainer = isRunning || hasLossHistory;
+        // Determine what to show in expanded section
+        const hasChartToShow = isRunning || hasLossHistory;
         
         return `
             <div class="job-card ${job.status}" data-job-id="${job.id}">
                 <div class="job-header">
                     <div class="job-name">${job.job_name || 'Unnamed Job'}</div>
                     <div class="job-actions">
-                        ${hasLossHistory && !isRunning ? `
-                            <button class="btn-small btn-expand ${isExpanded ? 'expanded' : ''}" data-job-id="${job.id}">${isExpanded ? '📉 Collapse' : '📊 Expand'}</button>
-                        ` : ''}
+                        <button class="btn-small btn-expand ${isExpanded ? 'expanded' : ''}" data-job-id="${job.id}" title="${isExpanded ? 'Collapse' : 'Expand to view details'}">
+                            ${isExpanded ? '📉 Collapse' : '📊 Expand'}
+                        </button>
                         <div class="job-status status-${job.status}">${job.status.toUpperCase()}</div>
                         ${(job.status === 'running' || job.status === 'pending') ? `
                             <button class="btn-small btn-terminate" data-job-id="${job.id}">⏹️ Stop</button>
-                        ` : ''}
-                        <button class="btn-small btn-delete" data-job-id="${job.id}">🗑️ Delete</button>
+                        ` : `
+                            <button class="btn-small btn-delete" data-job-id="${job.id}">🗑️ Delete</button>
+                        `}
                     </div>
                 </div>
                 <div class="job-info">
@@ -1364,9 +1450,7 @@ function displayJobs(): void {
                 </div>
                 ${job.status === 'running' && progress > 0 ? `
                     <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${progress}%">
-                            ${progress}%
-                        </div>
+                        <div class="progress-fill" style="width: ${progress}%" data-progress="${progress}%"></div>
                     </div>
                 ` : ''}
                 ${job.status === 'completed' ? `
@@ -1379,11 +1463,22 @@ function displayJobs(): void {
                         ${job.error_message || 'Training failed'}
                     </div>
                 ` : ''}
-                ${shouldHaveChartContainer ? `
-                    <div class="job-expanded-content" id="job-expanded-${job.id}" style="display: ${isExpanded ? 'block' : 'none'};">
+                <div class="job-expanded-content" id="job-expanded-${job.id}" style="display: ${isExpanded ? 'block' : 'none'};">
+                    ${hasChartToShow ? `
                         <div class="job-loss-chart-container" id="job-loss-chart-${job.id}"></div>
+                    ` : ''}
+                    <div class="job-config-section">
+                        <div class="job-config-actions">
+                            <button class="btn-small btn-view-config" data-job-id="${job.id}" title="View full configuration">
+                                📋 View Configuration
+                            </button>
+                            <button class="btn-small btn-load-config" data-job-id="${job.id}" title="Load this configuration into the form">
+                                📥 Load Configuration
+                            </button>
+                        </div>
+                        <div class="job-config-details" id="job-config-${job.id}" style="display: none;"></div>
                     </div>
-                ` : ''}
+                </div>
             </div>
         `;
     }).join('');
@@ -1436,6 +1531,191 @@ function displayJobs(): void {
             }
         });
     });
+    
+    // Add event listeners for view configuration buttons
+    container.querySelectorAll('.btn-view-config').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const jobId = (e.target as HTMLElement).getAttribute('data-job-id');
+            if (jobId) {
+                toggleJobConfigView(jobId);
+            }
+        });
+    });
+    
+    // Add event listeners for load configuration buttons
+    container.querySelectorAll('.btn-load-config').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const jobId = (e.target as HTMLElement).getAttribute('data-job-id');
+            if (jobId) {
+                loadJobConfigIntoForm(jobId);
+            }
+        });
+    });
+}
+
+/**
+ * Toggle the visibility of the job configuration details
+ * @param jobId - ID of the job
+ */
+function toggleJobConfigView(jobId: string): void {
+    const configDetails = document.getElementById(`job-config-${jobId}`);
+    const viewBtn = document.querySelector(`.btn-view-config[data-job-id="${jobId}"]`) as HTMLElement;
+    
+    if (!configDetails || !viewBtn) return;
+    
+    const isVisible = configDetails.style.display !== 'none';
+    
+    if (isVisible) {
+        // Hide configuration
+        configDetails.style.display = 'none';
+        viewBtn.textContent = '📋 View Configuration';
+    } else {
+        // Show configuration - build the config display
+        const job = allJobs.find(j => j.id === jobId);
+        if (!job) return;
+        
+        const modelType = getModelType(job);
+        
+        // Format configuration as readable JSON
+        configDetails.innerHTML = `
+            <div style="background: #2c2c2c; color: #f8f8f2; padding: 15px; border-radius: 6px; overflow-x: auto; margin-top: 10px;">
+                <div style="margin-bottom: 10px; font-weight: bold; color: #8B4513; font-size: 14px;">
+                    Model Type: ${modelType === 'bean' ? 'Bean Model' : 'Roaster Model (System ID)'}
+                </div>
+                <pre style="margin: 0; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;">${JSON.stringify(job.config, null, 2)}</pre>
+            </div>
+        `;
+        configDetails.style.display = 'block';
+        viewBtn.textContent = '📋 Hide Configuration';
+    }
+}
+
+/**
+ * Load a job's configuration into the training form
+ * This allows users to quickly create a new training job based on an existing configuration
+ * @param jobId - ID of the job whose configuration to load
+ */
+function loadJobConfigIntoForm(jobId: string): void {
+    const job = allJobs.find(j => j.id === jobId);
+    if (!job) {
+        showMessage('Job not found', 'error');
+        return;
+    }
+    
+    const modelType = getModelType(job);
+    
+    try {
+        if (modelType === 'bean') {
+            // Bean model configuration
+            const beanConfig = job.config as any;
+            
+            // Switch to bean training mode
+            const trainingTypeSelect = document.getElementById('trainingType') as HTMLSelectElement;
+            if (trainingTypeSelect) {
+                trainingTypeSelect.value = 'bean';
+                handleTrainingTypeChange();
+            }
+            
+            // Load training parameters
+            if (beanConfig.training) {
+                setInputValue('learningRate', beanConfig.training.lr);
+                setInputValue('maxEpochs', beanConfig.training.max_epochs);
+                setInputValue('patience', beanConfig.training.patience);
+                setInputValue('schedulerFactor', beanConfig.training.scheduler_factor);
+                setInputValue('schedulerPatience', beanConfig.training.scheduler_patience);
+                setInputValue('schedulerMinLr', beanConfig.training.scheduler_min_lr);
+                setCheckboxValue('schedulerVerbose', beanConfig.training.scheduler_verbose);
+            }
+            
+            showMessage('Bean model configuration loaded into form. Note: You still need to select a System ID model and bean variety.', 'success');
+            
+        } else {
+            // Roaster model (System ID) configuration
+            const config = job.config;
+            
+            // Switch to system ID training mode
+            const trainingTypeSelect = document.getElementById('trainingType') as HTMLSelectElement;
+            if (trainingTypeSelect) {
+                trainingTypeSelect.value = 'system_id';
+                handleTrainingTypeChange();
+            }
+            
+            // Load data configuration
+            if (config.data) {
+                setInputValue('batchSize', config.data.batch_size);
+                setInputValue('sequenceLength', config.data.sequence_length);
+                setInputValue('stride', config.data.stride);
+                if (config.data.delay) {
+                    setInputValue('delayHorizon', config.data.delay.time_horizon);
+                    setInputValue('delayPoints', config.data.delay.num_points);
+                }
+            }
+            
+            // Load model configuration
+            if (config.model) {
+                setInputValue('nLatents', config.model.n_latents);
+                setInputValue('estimatorHidden', config.model.estimator_hidden_dim);
+            }
+            
+            // Load training configuration
+            if (config.training) {
+                setInputValue('learningRate', config.training.lr);
+                setInputValue('maxEpochs', config.training.max_epochs);
+                setInputValue('patience', config.training.patience);
+                setInputValue('cbWeight', config.training.cb_weight);
+                setInputValue('chargeWeight', config.training.charge_weight);
+                setInputValue('airTempWeight', config.training.air_temp_weight);
+                setInputValue('schedulerFactor', config.training.scheduler_factor);
+                setInputValue('schedulerPatience', config.training.scheduler_patience);
+                setInputValue('schedulerMinLr', config.training.scheduler_min_lr);
+                setCheckboxValue('schedulerVerbose', config.training.scheduler_verbose);
+            }
+            
+            showMessage('Configuration loaded successfully! You can now select roasts and start a new training job with these parameters.', 'success');
+        }
+        
+        // Switch to the training view if not already there
+        const trainingTab = document.querySelector('.view-tab[data-view="training"]') as HTMLElement;
+        if (trainingTab && !trainingTab.classList.contains('active')) {
+            trainingTab.click();
+        }
+        
+        // Scroll to the configuration form
+        const configPanel = document.querySelector('.config-panel');
+        if (configPanel) {
+            configPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+    } catch (error: any) {
+        console.error('Error loading configuration:', error);
+        showMessage(`Failed to load configuration: ${error.message}`, 'error');
+    }
+}
+
+/**
+ * Helper function to safely set input value
+ * @param elementId - ID of the input element
+ * @param value - Value to set
+ */
+function setInputValue(elementId: string, value: any): void {
+    const element = document.getElementById(elementId) as HTMLInputElement;
+    if (element && value !== undefined && value !== null) {
+        element.value = value.toString();
+    }
+}
+
+/**
+ * Helper function to safely set checkbox value
+ * @param elementId - ID of the checkbox element
+ * @param checked - Whether the checkbox should be checked
+ */
+function setCheckboxValue(elementId: string, checked: boolean): void {
+    const element = document.getElementById(elementId) as HTMLInputElement;
+    if (element) {
+        element.checked = checked;
+    }
 }
 
 /**
@@ -1472,7 +1752,7 @@ function toggleJobExpanded(jobId: string): void {
 }
 
 /**
- * Plot the loss history for a specific job card
+ * Plot the loss history for a specific job card using Chart.js
  * @param jobId - ID of the job
  * @param lossHistory - Object containing arrays of loss values (total, recon, estim)
  */
@@ -1480,70 +1760,132 @@ function plotJobLossHistory(jobId: string, lossHistory: { total?: number[], reco
     const container = document.getElementById(`job-loss-chart-${jobId}`);
     if (!container) return;
     
-    const traces: any[] = [];
+    // Clear existing content and create canvas element
+    const canvasId = `job-loss-canvas-${jobId}`;
+    container.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    if (!canvas) return;
     
-    // Total loss trace
+    // Destroy existing chart instance if it exists
+    const chartKey = `job-loss-chart-${jobId}`;
+    const existingChart = chartInstances.get(chartKey);
+    if (existingChart) {
+        existingChart.destroy();
+        chartInstances.delete(chartKey);
+    }
+    
+    // Prepare datasets
+    const datasets: any[] = [];
+    
+    // Determine the number of epochs (x-axis length) from the longest array
+    const numEpochs = Math.max(
+        lossHistory.total?.length || 0,
+        lossHistory.recon?.length || 0,
+        lossHistory.estim?.length || 0
+    );
+    
+    // Create x-axis labels (epoch numbers)
+    const labels = Array.from({ length: numEpochs }, (_, i) => i + 1);
+    
+    // Total loss dataset
     if (lossHistory.total && lossHistory.total.length > 0) {
-        traces.push({
-            y: lossHistory.total,
-            name: 'Total Loss',
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#8B4513', width: 2 }
+        datasets.push({
+            label: 'Total Loss',
+            data: lossHistory.total,
+            borderColor: '#8B4513',
+            backgroundColor: 'rgba(139, 69, 19, 0.1)',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1
         });
     }
     
-    // Reconstruction loss trace
+    // Reconstruction loss dataset
     if (lossHistory.recon && lossHistory.recon.length > 0) {
-        traces.push({
-            y: lossHistory.recon,
-            name: 'Reconstruction Loss',
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#007bff', width: 1.5 }
+        datasets.push({
+            label: 'Reconstruction Loss',
+            data: lossHistory.recon,
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1
         });
     }
     
-    // Estimator loss trace
+    // Estimator loss dataset
     if (lossHistory.estim && lossHistory.estim.length > 0) {
-        traces.push({
-            y: lossHistory.estim,
-            name: 'Estimator Loss',
-            type: 'scatter',
-            mode: 'lines',
-            line: { color: '#28a745', width: 1.5 }
+        datasets.push({
+            label: 'Estimator Loss',
+            data: lossHistory.estim,
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            tension: 0.1
         });
     }
     
-    const layout = {
-        title: 'Training Loss History',
-        xaxis: { 
-            title: 'Epoch',
-            gridcolor: '#e0e0e0'
+    // Create the Chart.js chart
+    const chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: datasets
         },
-        yaxis: { 
-            title: 'Loss', 
-            type: 'log' as const,
-            gridcolor: '#e0e0e0'
-        },
-        autosize: true,
-        height: 300,
-        margin: { l: 60, r: 30, t: 40, b: 40 },
-        plot_bgcolor: '#fafafa',
-        paper_bgcolor: '#ffffff',
-        legend: {
-            x: 1,
-            xanchor: 'right' as const,
-            y: 1
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,  // Disable animation for better performance with updates
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Training Loss History',
+                    font: { size: 13 }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: { size: 11 },
+                        boxWidth: 12
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Epoch',
+                        font: { size: 11 }
+                    },
+                    grid: {
+                        color: '#e0e0e0'
+                    },
+                    ticks: {
+                        font: { size: 10 }
+                    }
+                },
+                y: {
+                    type: 'logarithmic',
+                    title: {
+                        display: true,
+                        text: 'Loss (log scale)',
+                        font: { size: 11 }
+                    },
+                    grid: {
+                        color: '#e0e0e0'
+                    },
+                    ticks: {
+                        font: { size: 10 }
+                    }
+                }
+            }
         }
-    };
+    });
     
-    const config = {
-        responsive: true,
-        displayModeBar: false
-    };
-    
-    Plotly.newPlot(container, traces, layout, config);
+    // Store the chart instance for updates
+    chartInstances.set(chartKey, chart);
 }
 
 /**
@@ -1600,23 +1942,113 @@ async function terminateJob(jobId: string, jobName: string): Promise<void> {
 
 /**
  * Delete a training job from the database
+ * For completed jobs: Only deletes the database record (preserves model files)
+ * For non-completed jobs: Deletes both database record and storage files
  * @param jobId - ID of the job to delete
  * @param jobName - Name of the job (for confirmation dialog)
  */
 async function deleteJob(jobId: string, jobName: string): Promise<void> {
-    if (!confirm(`Are you sure you want to delete "${jobName}"?\n\nThis action cannot be undone.`)) {
+    // Find the job to check its status
+    const job = allJobs.find(j => j.id === jobId);
+    if (!job) {
+        showMessage('Job not found', 'error');
+        return;
+    }
+    
+    // Different confirmation messages based on job status
+    let confirmMessage: string;
+    if (job.status === 'completed') {
+        confirmMessage = `Are you sure you want to delete "${jobName}"?\n\nNote: This will only remove the job from this list. The trained model and its files will be preserved in the Model Library.`;
+    } else {
+        confirmMessage = `Are you sure you want to delete "${jobName}"?\n\nThis action cannot be undone and will remove the job record and any associated partial files.`;
+    }
+    
+    if (!confirm(confirmMessage)) {
         return;
     }
 
     try {
-        const { error } = await supabase
+        // Only delete storage files for non-completed jobs
+        // Completed jobs have valuable model artifacts that should be preserved
+        if (job.status !== 'completed') {
+            // Get the training job details to find the storage path
+            const { data: jobData, error: jobError } = await supabase
+                .from('training_jobs')
+                .select('user_id')
+                .eq('id', jobId)
+                .single();
+
+            if (jobError) throw jobError;
+
+            // Storage path format: {user_id}/jobs/{job_id}/
+            const storagePath = `${jobData.user_id}/jobs/${jobId}`;
+            
+            // Delete all files in the job's storage directory
+            console.log(`Deleting incomplete job files from storage path: ${storagePath}`);
+            
+            try {
+                // List files in the job directory
+                const { data: fileList, error: listError } = await supabase
+                    .storage
+                    .from('trained-models')
+                    .list(storagePath, {
+                        limit: 1000,
+                        sortBy: { column: 'name', order: 'asc' }
+                    });
+
+                if (listError) {
+                    console.warn('Error listing files:', listError);
+                } else if (fileList && fileList.length > 0) {
+                    // Delete each file
+                    const filePaths = fileList.map(file => `${storagePath}/${file.name}`);
+                    
+                    // Also check for evaluations subdirectory
+                    const { data: evalFileList, error: evalListError } = await supabase
+                        .storage
+                        .from('trained-models')
+                        .list(`${storagePath}/evaluations`, {
+                            limit: 1000,
+                            sortBy: { column: 'name', order: 'asc' }
+                        });
+
+                    if (!evalListError && evalFileList && evalFileList.length > 0) {
+                        const evalFilePaths = evalFileList.map(file => `${storagePath}/evaluations/${file.name}`);
+                        filePaths.push(...evalFilePaths);
+                    }
+                    
+                    console.log(`Deleting ${filePaths.length} files from storage`);
+                    
+                    const { error: deleteError } = await supabase
+                        .storage
+                        .from('trained-models')
+                        .remove(filePaths);
+
+                    if (deleteError) {
+                        console.warn('Error deleting some storage files:', deleteError);
+                        // Continue anyway - don't fail the entire operation
+                    }
+                }
+            } catch (storageError: any) {
+                console.warn('Warning: Error deleting storage files:', storageError);
+                // Continue with database deletion even if storage deletion fails
+            }
+        } else {
+            console.log(`Job ${jobId} is completed - preserving model files in storage`);
+        }
+
+        // Delete the training job record from the database
+        const { error: dbError } = await supabase
             .from('training_jobs')
             .delete()
             .eq('id', jobId);
 
-        if (error) throw error;
+        if (dbError) throw dbError;
 
-        showMessage(`Successfully deleted "${jobName}"`, 'success');
+        const successMessage = job.status === 'completed' 
+            ? `Successfully removed "${jobName}" from jobs list` 
+            : `Successfully deleted "${jobName}" and cleaned up associated files`;
+        
+        showMessage(successMessage, 'success');
         
         // Reload both jobs and models (in case a completed job was deleted)
         await loadJobs();

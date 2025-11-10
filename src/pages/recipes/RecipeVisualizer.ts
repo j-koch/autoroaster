@@ -13,10 +13,10 @@
 
 import { supabase } from '../../lib/supabase';
 import { generateAlogFile, downloadAlogFile } from '../../data/alogGenerator';
+import { Chart, registerables } from 'chart.js';
 
-// Chart.js is loaded via CDN in the HTML
-// TypeScript declaration for Chart
-declare const Chart: any;
+// Register Chart.js components
+Chart.register(...registerables);
 
 /**
  * Recipe data structure stored in database

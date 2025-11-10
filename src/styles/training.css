@@ -891,10 +891,50 @@ body {
     background-color: #5a6268;
 }
 
+.btn-view-config {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-view-config:hover {
+    background-color: #138496;
+}
+
+.btn-load-config {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-load-config:hover {
+    background-color: #218838;
+}
+
 .job-info {
     font-size: 13px;
     color: #666;
     margin-bottom: 6px;
+}
+
+/* Job configuration section */
+.job-config-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.job-config-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.job-config-details {
+    animation: slideDown 0.3s ease-out;
+}
+
+.job-config-details pre {
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 /* Expandable content for job cards */
@@ -935,20 +975,31 @@ body {
     background: #e9ecef;
     border-radius: 4px;
     height: 24px;
-    overflow: hidden;
+    overflow: visible;
     margin-top: 10px;
+    position: relative;
 }
 
 .progress-fill {
     background: linear-gradient(90deg, #667eea, #764ba2);
     height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    position: relative;
+}
+
+.progress-fill::after {
+    content: attr(data-progress);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     color: white;
     font-size: 12px;
     font-weight: bold;
-    transition: width 0.5s ease;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+    white-space: nowrap;
 }
 
 .error-message {

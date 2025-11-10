@@ -2218,7 +2218,8 @@ async function deleteJob(jobId: string, jobName: string): Promise<void> {
 
         if (dbError) throw dbError;
 
-        const successMessage = job.status === 'completed' 
+        // Type assertion: for success message, check status as string
+        const successMessage = (job.status as string) === 'completed' 
             ? `Successfully removed "${jobName}" from jobs list` 
             : `Successfully deleted "${jobName}" and cleaned up associated files`;
         

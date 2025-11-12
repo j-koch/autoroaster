@@ -555,18 +555,18 @@ export class RoasterSimulator {
   
   /**
    * Initialize state with preheat conditions
-   * T_bm = preheat temp (180°C)
-   * T_air = T_bm - 40°C = 140°C
-   * T_roaster = T_bm + 50°C = 230°C
-   * T_b = room temperature = 25°C
-   * T_atm = measured air temp = T_bm = 180°C
+   * T_bm = preheat temp (180°C) - bean probe measurement
+   * T_air = T_bm (180°C) - air surrounding beans starts at bean probe temp
+   * T_roaster = T_bm + 50°C = 230°C - roaster/drum temperature
+   * T_b = room temperature = 25°C - bean core starts at room temp
+   * T_env = T_atm = T_bm - 40°C = 140°C - air surrounding drum (environment probe)
    */
   private initializePreheatState(): Float32Array {
     const roomTemp = 25.0; // °C
     const preheatTemp = this.preheatTemp; // 180°C
-    const roasterTemp = preheatTemp + 50.0; // 230°C
-    const airTemp = preheatTemp - 40.0; // 140°C
-    const measuredAirTemp = preheatTemp; // 180°C (T_atm - measured air temperature)
+    const roasterTemp = preheatTemp + 80.0; // 230°C
+    const airTemp = preheatTemp; // 180°C (T_air - air surrounding beans)
+    const envTemp = preheatTemp - 40.0; // 140°C (T_env/T_atm - air surrounding drum)
     
     // Normalize temperatures using scaling factor
     const tempScale = this.scalingFactors.temperatures.bean;
@@ -575,9 +575,9 @@ export class RoasterSimulator {
     return new Float32Array([
       roasterTemp / tempScale,     // T_r (roaster temperature)
       roomTemp / tempScale,        // T_b (bean core temperature - starts at room temp)
-      airTemp / tempScale,         // T_air (air temperature)
+      airTemp / tempScale,         // T_air (air temperature - air surrounding beans)
       preheatTemp / tempScale,     // T_bm (bean measurement temperature)
-      measuredAirTemp / tempScale  // T_atm (measured air temperature)
+      envTemp / tempScale          // T_atm (environment temperature - air surrounding drum)
     ]);
   }
 

@@ -873,18 +873,18 @@ export class RecipeGenerator {
       // Use the adjustable preheat temperature (bean probe initial temperature)
       const preheatTemp = this.preheatTempC; // Bean probe/measurement temp (adjustable via UI slider)
       const roomTemp = 25.0; // Bean core starts at room temperature (°C)
-      const roasterTemp = preheatTemp + 50.0; // Roaster/drum temp is typically higher than bean probe (°C)
-      const airTemp = preheatTemp - 40.0; // Air temp is typically lower than bean probe (°C)
-      const measuredAirTemp = preheatTemp; // Measured air/environment temp starts at bean probe temp (°C)
+      const roasterTemp = preheatTemp + 80.0; // Roaster/drum temp is typically higher than bean probe (°C)
+      const airTemp = preheatTemp; // T_air (air surrounding beans) starts at bean probe temp (°C)
+      const envTemp = preheatTemp - 40.0; // T_env (air surrounding drum) is ~40°C below bean probe (°C)
       
       // Normalize using scaling factors
       const tempScale = this.scalingFactors.temperatures.bean;
       let currentState = new Float32Array([
         roasterTemp / tempScale,     // T_r (roaster temperature)
         roomTemp / tempScale,        // T_b (bean core temperature - starts at room temp)
-        airTemp / tempScale,         // T_air (air temperature)
+        airTemp / tempScale,         // T_air (air temperature - air surrounding beans)
         preheatTemp / tempScale,     // T_bm (bean measurement temperature)
-        measuredAirTemp / tempScale  // T_atm (measured air temperature)
+        envTemp / tempScale          // T_atm (environment temperature - air surrounding drum)
       ]);
       
       // Results storage
@@ -1087,6 +1087,19 @@ export class RecipeGenerator {
           y: results.air_temp[i]
         })),
         borderColor: '#2ecc71',
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.1,
+        fill: false
+      },
+      {
+        label: 'Env Probe',
+        data: results.time.map((t, i) => ({
+          x: t,
+          y: results.env_probe_temp[i]
+        })),
+        borderColor: '#9b59b6',
         backgroundColor: 'transparent',
         borderWidth: 1.5,
         pointRadius: 0,

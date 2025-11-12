@@ -456,6 +456,57 @@ export class RecipeVisualizer {
         fill: false,
         yAxisID: 'y'
       });
+      
+      // Drum temperature (dotted line)
+      datasets.push({
+        label: `${recipe.name} - Drum`,
+        data: recipe.simulated_results.time.map((t, i) => ({
+          x: t,
+          y: recipe.simulated_results.drum_temp[i]
+        })),
+        borderColor: this.adjustColorOpacity(baseColor, 0.8),
+        backgroundColor: this.adjustColorOpacity(baseColor, 0.8),
+        borderWidth: 1,
+        borderDash: [3, 3],  // Dotted line pattern
+        pointRadius: 0,
+        tension: 0.1,
+        fill: false,
+        yAxisID: 'y'
+      });
+      
+      // Air temperature (dash-dot line)
+      datasets.push({
+        label: `${recipe.name} - Air`,
+        data: recipe.simulated_results.time.map((t, i) => ({
+          x: t,
+          y: recipe.simulated_results.air_temp[i]
+        })),
+        borderColor: this.adjustColorOpacity(baseColor, 0.7),
+        backgroundColor: this.adjustColorOpacity(baseColor, 0.7),
+        borderWidth: 1,
+        borderDash: [8, 3, 2, 3],  // Dash-dot pattern
+        pointRadius: 0,
+        tension: 0.1,
+        fill: false,
+        yAxisID: 'y'
+      });
+      
+      // Environment probe temperature (long dash line)
+      datasets.push({
+        label: `${recipe.name} - Env Probe`,
+        data: recipe.simulated_results.time.map((t, i) => ({
+          x: t,
+          y: recipe.simulated_results.env_probe_temp[i]
+        })),
+        borderColor: this.adjustColorOpacity(baseColor, 0.6),
+        backgroundColor: this.adjustColorOpacity(baseColor, 0.6),
+        borderWidth: 1,
+        borderDash: [10, 5],  // Long dash pattern
+        pointRadius: 0,
+        tension: 0.1,
+        fill: false,
+        yAxisID: 'y'
+      });
     });
     
     // Add control datasets for each recipe (heater, fan, and drum)

@@ -70,25 +70,30 @@
                             <div class="filter-row">
                                 <div class="filter-group">
                                     <label for="filter-origin">Origin</label>
-                                    <input type="text" id="filter-origin" placeholder="Filter by origin...">
+                                    <input type="text" id="filter-origin" list="origin-list" placeholder="Filter by origin...">
+                                    <datalist id="origin-list">
+                                        <!-- Options will be populated dynamically -->
+                                    </datalist>
                                 </div>
                                 <div class="filter-group">
                                     <label for="filter-variety">Variety</label>
-                                    <input type="text" id="filter-variety" placeholder="Filter by variety...">
+                                    <input type="text" id="filter-variety" list="variety-list" placeholder="Filter by variety...">
+                                    <datalist id="variety-list">
+                                        <!-- Options will be populated dynamically -->
+                                    </datalist>
                                 </div>
                                 <div class="filter-group">
                                     <label for="filter-roaster">Roaster</label>
-                                    <input type="text" id="filter-roaster" placeholder="Filter by roaster...">
+                                    <input type="text" id="filter-roaster" list="roaster-list" placeholder="Filter by roaster...">
+                                    <datalist id="roaster-list">
+                                        <!-- Options will be populated dynamically -->
+                                    </datalist>
                                 </div>
                                 <div class="filter-group">
                                     <label for="filter-process">Process</label>
                                     <select id="filter-process">
                                         <option value="">All processes</option>
-                                        <option value="washed">Washed</option>
-                                        <option value="natural">Natural</option>
-                                        <option value="honey">Honey</option>
-                                        <option value="semi-washed">Semi-Washed</option>
-                                        <option value="other">Other</option>
+                                        <!-- Options will be populated dynamically -->
                                     </select>
                                 </div>
                                 <div class="filter-group">

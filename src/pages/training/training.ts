@@ -697,6 +697,10 @@ async function loadRoasts(): Promise<void> {
 
         roasts = data as Roast[];
         filteredRoasts = [...roasts];
+        
+        // Populate filter dropdowns with available values from the roast data
+        populateFilterOptions();
+        
         displayRoasts();
     } catch (error: any) {
         console.error('Error loading roasts:', error);
@@ -704,6 +708,74 @@ async function loadRoasts(): Promise<void> {
         if (roastSelector) {
             roastSelector.innerHTML = '<div class="error-message">Failed to load roasts</div>';
         }
+    }
+}
+
+/**
+ * Populate filter dropdowns with unique values from roast data
+ * This function extracts unique values for origin, variety, and process
+ * from all roasts and populates the corresponding datalists and select elements
+ */
+function populateFilterOptions(): void {
+    // Extract unique values for each field
+    // Using Sets to automatically handle uniqueness, then converting to sorted arrays
+    const origins = new Set<string>();
+    const varieties = new Set<string>();
+    const processes = new Set<string>();
+    
+    // Iterate through all roasts to collect unique values
+    roasts.forEach(roast => {
+        if (roast.origin) origins.add(roast.origin);
+        if (roast.variety) varieties.add(roast.variety);
+        if (roast.process) processes.add(roast.process);
+    });
+    
+    // Convert Sets to sorted arrays for display
+    // Sort alphabetically for easier selection by users
+    const sortedOrigins = Array.from(origins).sort();
+    const sortedVarieties = Array.from(varieties).sort();
+    const sortedProcesses = Array.from(processes).sort();
+    
+    // Populate origin datalist
+    // Clear existing options first to avoid duplicates
+    const originList = document.getElementById('training-origin-list') as HTMLDataListElement;
+    if (originList) {
+        originList.innerHTML = '';
+        sortedOrigins.forEach(origin => {
+            const option = document.createElement('option');
+            option.value = origin;
+            originList.appendChild(option);
+        });
+    }
+    
+    // Populate variety datalist
+    const varietyList = document.getElementById('training-variety-list') as HTMLDataListElement;
+    if (varietyList) {
+        varietyList.innerHTML = '';
+        sortedVarieties.forEach(variety => {
+            const option = document.createElement('option');
+            option.value = variety;
+            varietyList.appendChild(option);
+        });
+    }
+    
+    // Populate process dropdown
+    // Keep the "All processes" option at the top, then add the actual values
+    const processSelect = document.getElementById('training-filter-process') as HTMLSelectElement;
+    if (processSelect) {
+        // Clear existing options except the first "All processes" option
+        while (processSelect.options.length > 1) {
+            processSelect.remove(1);
+        }
+        
+        // Add sorted process options
+        sortedProcesses.forEach(process => {
+            const option = document.createElement('option');
+            option.value = process;
+            // Capitalize first letter for display
+            option.textContent = process.charAt(0).toUpperCase() + process.slice(1);
+            processSelect.appendChild(option);
+        });
     }
 }
 

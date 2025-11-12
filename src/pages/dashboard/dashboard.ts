@@ -91,6 +91,11 @@ const filterProcess = document.getElementById('filter-process') as HTMLSelectEle
 const sortBy = document.getElementById('sort-by') as HTMLSelectElement;
 const clearFiltersBtn = document.getElementById('clear-filters') as HTMLButtonElement;
 
+// Datalist elements for autocomplete
+const originList = document.getElementById('origin-list') as HTMLDataListElement;
+const varietyList = document.getElementById('variety-list') as HTMLDataListElement;
+const roasterList = document.getElementById('roaster-list') as HTMLDataListElement;
+
 // Selection elements
 const visualizeSelectedBtn = document.getElementById('visualize-selected') as HTMLButtonElement;
 const selectionCount = document.getElementById('selection-count') as HTMLSpanElement;
@@ -299,11 +304,16 @@ async function loadRoastHistory(): Promise<void> {
             return;
         }
         
-        // Store all roasts and apply filters
+        // Store all roasts and populate filter options
         allRoasts = roasts as Roast[];
         filterControls.style.display = 'block';
         visualizeSelectedBtn.style.display = 'inline-block';  // Show button when roasts exist
         historyTableContainer.style.display = 'block';
+        
+        // Populate filter dropdowns with available values from the roast data
+        populateFilterOptions();
+        
+        // Apply filters and display the roasts
         applyFiltersAndSort();
         
     } catch (error: any) {
@@ -608,6 +618,76 @@ async function deleteRoast(roastId: string, fileUrl: string): Promise<void> {
 // ========================================
 // FILTERING AND SORTING
 // ========================================
+
+/**
+ * Populate filter dropdowns with unique values from roast data
+ * This function extracts unique values for origin, variety, roaster, and process
+ * from all roasts and populates the corresponding datalists and select elements
+ */
+function populateFilterOptions(): void {
+    // Extract unique values for each field
+    // Using Sets to automatically handle uniqueness, then converting to sorted arrays
+    const origins = new Set<string>();
+    const varieties = new Set<string>();
+    const roasters = new Set<string>();
+    const processes = new Set<string>();
+    
+    // Iterate through all roasts to collect unique values
+    allRoasts.forEach(roast => {
+        if (roast.origin) origins.add(roast.origin);
+        if (roast.variety) varieties.add(roast.variety);
+        if (roast.roaster) roasters.add(roast.roaster);
+        if (roast.process) processes.add(roast.process);
+    });
+    
+    // Convert Sets to sorted arrays for display
+    // Sort alphabetically for easier selection by users
+    const sortedOrigins = Array.from(origins).sort();
+    const sortedVarieties = Array.from(varieties).sort();
+    const sortedRoasters = Array.from(roasters).sort();
+    const sortedProcesses = Array.from(processes).sort();
+    
+    // Populate origin datalist
+    // Clear existing options first to avoid duplicates
+    originList.innerHTML = '';
+    sortedOrigins.forEach(origin => {
+        const option = document.createElement('option');
+        option.value = origin;
+        originList.appendChild(option);
+    });
+    
+    // Populate variety datalist
+    varietyList.innerHTML = '';
+    sortedVarieties.forEach(variety => {
+        const option = document.createElement('option');
+        option.value = variety;
+        varietyList.appendChild(option);
+    });
+    
+    // Populate roaster datalist
+    roasterList.innerHTML = '';
+    sortedRoasters.forEach(roaster => {
+        const option = document.createElement('option');
+        option.value = roaster;
+        roasterList.appendChild(option);
+    });
+    
+    // Populate process dropdown
+    // Keep the "All processes" option at the top, then add the actual values
+    // Clear existing options except the first "All processes" option
+    while (filterProcess.options.length > 1) {
+        filterProcess.remove(1);
+    }
+    
+    // Add sorted process options
+    sortedProcesses.forEach(process => {
+        const option = document.createElement('option');
+        option.value = process;
+        // Capitalize first letter for display
+        option.textContent = process.charAt(0).toUpperCase() + process.slice(1);
+        filterProcess.appendChild(option);
+    });
+}
 
 /**
  * Apply filters and sorting to roasts

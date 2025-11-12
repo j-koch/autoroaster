@@ -219,21 +219,23 @@
                                     <div class="filter-row">
                                         <div class="filter-group">
                                             <label for="training-filter-origin">Origin</label>
-                                            <input type="text" id="training-filter-origin" placeholder="Filter by origin...">
+                                            <input type="text" id="training-filter-origin" list="training-origin-list" placeholder="Filter by origin...">
+                                            <datalist id="training-origin-list">
+                                                <!-- Options will be populated dynamically -->
+                                            </datalist>
                                         </div>
                                         <div class="filter-group">
                                             <label for="training-filter-variety">Variety</label>
-                                            <input type="text" id="training-filter-variety" placeholder="Filter by variety...">
+                                            <input type="text" id="training-filter-variety" list="training-variety-list" placeholder="Filter by variety...">
+                                            <datalist id="training-variety-list">
+                                                <!-- Options will be populated dynamically -->
+                                            </datalist>
                                         </div>
                                         <div class="filter-group">
                                             <label for="training-filter-process">Process</label>
                                             <select id="training-filter-process">
                                                 <option value="">All processes</option>
-                                                <option value="washed">Washed</option>
-                                                <option value="natural">Natural</option>
-                                                <option value="honey">Honey</option>
-                                                <option value="semi-washed">Semi-Washed</option>
-                                                <option value="other">Other</option>
+                                                <!-- Options will be populated dynamically -->
                                             </select>
                                         </div>
                                         <div class="filter-group">

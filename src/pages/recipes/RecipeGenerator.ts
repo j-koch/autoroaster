@@ -1082,9 +1082,9 @@ export class RecipeGenerator {
       // Use the adjustable preheat temperature (bean probe initial temperature)
       const preheatTemp = this.preheatTempC; // Bean probe/measurement temp (adjustable via UI slider)
       const roomTemp = 20.0; // Bean core starts at room temperature (°C)
-      const roasterTemp = preheatTemp + 30.0; // Roaster/drum temp is typically higher than bean probe (°C)
+      const roasterTemp = preheatTemp + 50.0; // Roaster/drum temp is typically higher than bean probe (°C)
       const airTemp = preheatTemp; // T_air (air surrounding beans) starts at bean probe temp (°C)
-      const envTemp = preheatTemp - 50.0; // T_env (air surrounding drum) is ~40°C below bean probe (°C)
+      const envTemp = preheatTemp - 40.0; // T_env (air surrounding drum) is ~40°C below bean probe (°C)
       
       // Normalize using scaling factors
       const tempScale = this.scalingFactors.temperatures.bean;

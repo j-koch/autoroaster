@@ -66,6 +66,25 @@ interface TrainingJob {
 }
 
 /**
+ * Regression coefficients for initial conditions
+ * Loaded from initial_conditions.json (computed by initial_conditions_finder.py)
+ */
+interface RegressionCoefficients {
+  T_env: {
+    a: number;  // Slope: T_env = a * T_bm + b
+    b: number;  // Intercept
+    r_squared: number;  // R² value (quality of fit)
+    formula: string;
+  };
+  T_r: {
+    a: number;  // Slope: T_r = a * T_bm + b
+    b: number;  // Intercept
+    r_squared: number;  // R² value (quality of fit)
+    formula: string;
+  };
+}
+
+/**
  * RecipeGenerator class manages the profile creation interface
  */
 export class RecipeGenerator {
@@ -76,6 +95,10 @@ export class RecipeGenerator {
   // Selected model IDs
   private selectedRoasterModelId: string = '';
   private selectedBeanModelId: string = '';
+  
+  // Initial conditions regression coefficients (loaded from initial_conditions.json)
+  // These provide a more consistent way to set initial conditions based on T_bm
+  private initialConditionsCoefficients: RegressionCoefficients | null = null;
   
   // Recipe parameters
   private beanMassG: number = 150;
@@ -491,6 +514,10 @@ export class RecipeGenerator {
         throw new Error(`Failed to create ONNX session for bean model. Error: ${errorCode}. The model file may be corrupted or incompatible with ONNX Runtime Web. Please try retraining the model.`);
       }
       
+      // Try to load initial conditions regression coefficients
+      // This is optional - if not found, we'll fall back to hardcoded offsets
+      await this.loadInitialConditionsCoefficients(user.id, this.selectedRoasterModelId);
+      
       // Show UI
       this.modelSelectionDiv.style.display = 'none';
       this.recipeInfoDiv.style.display = 'block';
@@ -590,6 +617,59 @@ export class RecipeGenerator {
     } catch (error: any) {
       console.error(`Error in downloadModelFromStorage for ${filename}:`, error);
       throw new Error(`Failed to download ${filename}: ${error.message || error.toString()}`);
+    }
+  }
+  
+  /**
+   * Load initial conditions regression coefficients from Supabase storage
+   * This is optional - if not found, we'll fall back to hardcoded offsets
+   * 
+   * @param userId - User ID
+   * @param roasterJobId - Roaster model job ID
+   */
+  private async loadInitialConditionsCoefficients(userId: string, roasterJobId: string): Promise<void> {
+    try {
+      console.log('Attempting to load initial conditions coefficients...');
+      
+      // Try to download initial_conditions.json from roaster model storage
+      const storagePath = `${userId}/jobs/${roasterJobId}/initial_conditions.json`;
+      
+      const { data, error } = await supabase.storage
+        .from('trained-models')
+        .download(storagePath);
+      
+      if (error) {
+        console.warn('Initial conditions file not found, will use hardcoded offsets:', error);
+        return;
+      }
+      
+      if (!data) {
+        console.warn('No data in initial conditions file');
+        return;
+      }
+      
+      // Parse JSON from blob
+      const text = await data.text();
+      const initialConditionsData = JSON.parse(text);
+      
+      // Extract regression coefficients
+      if (initialConditionsData.regression_coefficients) {
+        const coeffs = initialConditionsData.regression_coefficients;
+        this.initialConditionsCoefficients = coeffs;
+        
+        console.log('✓ Initial conditions coefficients loaded:', {
+          T_env: coeffs.T_env.formula,
+          T_r: coeffs.T_r.formula,
+          T_env_r2: coeffs.T_env.r_squared.toFixed(4),
+          T_r_r2: coeffs.T_r.r_squared.toFixed(4)
+        });
+      } else {
+        console.warn('No regression coefficients found in initial conditions file');
+      }
+      
+    } catch (error) {
+      console.warn('Failed to load initial conditions coefficients:', error);
+      // Not a critical error - we'll fall back to hardcoded offsets
     }
   }
   
@@ -1081,10 +1161,38 @@ export class RecipeGenerator {
       // State vector: [T_r, T_b, T_air, T_bm, T_atm]
       // Use the adjustable preheat temperature (bean probe initial temperature)
       const preheatTemp = this.preheatTempC; // Bean probe/measurement temp (adjustable via UI slider)
-      const roomTemp = 20.0; // Bean core starts at room temperature (°C)
-      const roasterTemp = preheatTemp + 50.0; // Roaster/drum temp is typically higher than bean probe (°C)
+      const roomTemp = this.ambientTempC; // Bean core starts at ambient temperature (°C) - from slider
+      
+      // Calculate initial conditions using regression coefficients if available
+      // Otherwise fall back to hardcoded offsets
+      let roasterTemp: number;
+      let envTemp: number;
+      
+      if (this.initialConditionsCoefficients) {
+        // Use linear regression: T = a * T_bm + b
+        roasterTemp = this.initialConditionsCoefficients.T_r.a * preheatTemp + 
+                      this.initialConditionsCoefficients.T_r.b;
+        envTemp = this.initialConditionsCoefficients.T_env.a * preheatTemp + 
+                  this.initialConditionsCoefficients.T_env.b;
+        
+        console.log('Using regression-based initial conditions:', {
+          T_bm: preheatTemp.toFixed(1) + '°C',
+          T_r: roasterTemp.toFixed(1) + '°C (from regression)',
+          T_env: envTemp.toFixed(1) + '°C (from regression)'
+        });
+      } else {
+        // Fallback to hardcoded offsets (original behavior)
+        roasterTemp = preheatTemp + 50.0; // Roaster/drum temp is typically higher than bean probe (°C)
+        envTemp = preheatTemp - 40.0; // T_env (air surrounding drum) is ~40°C below bean probe (°C)
+        
+        console.log('Using hardcoded offsets for initial conditions:', {
+          T_bm: preheatTemp.toFixed(1) + '°C',
+          T_r: roasterTemp.toFixed(1) + '°C (T_bm + 50)',
+          T_env: envTemp.toFixed(1) + '°C (T_bm - 40)'
+        });
+      }
+      
       const airTemp = preheatTemp; // T_air (air surrounding beans) starts at bean probe temp (°C)
-      const envTemp = preheatTemp - 40.0; // T_env (air surrounding drum) is ~40°C below bean probe (°C)
       
       // Normalize using scaling factors
       const tempScale = this.scalingFactors.temperatures.bean;

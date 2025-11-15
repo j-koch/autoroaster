@@ -80,25 +80,6 @@ interface TrainingJob {
 }
 
 /**
- * Determine if a model is a roaster or bean model based on its configuration
- * Bean models have bean_hidden_dims in their config, roaster models don't
- * @param model - The training job (model) to check
- * @returns 'roaster' or 'bean'
- */
-function getModelType(model: TrainingJob): 'roaster' | 'bean' {
-    // Check if config has bean_hidden_dims property (bean model)
-    if ((model.config as any).bean_hidden_dims) {
-        return 'bean';
-    }
-    // Check if config has the full roaster model structure
-    if (model.config.model && model.config.data) {
-        return 'roaster';
-    }
-    // Default to roaster for backward compatibility
-    return 'roaster';
-}
-
-/**
  * Testbed class manages the digital testbed interface
  * Handles model loading, simulator initialization, and UI state
  */

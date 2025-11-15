@@ -176,7 +176,6 @@ export class Testbed {
   
   /**
    * Load available trained models from Supabase and populate dropdowns
-   * Following training.ts pattern: completed training jobs ARE the trained models
    */
   private async loadAvailableModels(): Promise<void> {
     try {
@@ -195,9 +194,9 @@ export class Testbed {
       
       const allModels = (data as TrainingJob[]) || [];
       
-      // Separate roaster and bean models
-      const roasterModels = allModels.filter(model => getModelType(model) === 'roaster');
-      const beanModels = allModels.filter(model => getModelType(model) === 'bean');
+      // Separate roaster and bean models (same logic as RecipeGenerator)
+      const roasterModels = allModels.filter(m => !m.config.bean_hidden_dims);
+      const beanModels = allModels.filter(m => m.config.bean_hidden_dims);
       
       // Populate roaster model dropdown
       const roasterSelect = document.getElementById('testbed-roaster-model') as HTMLSelectElement;
@@ -241,7 +240,8 @@ export class Testbed {
   }
   
   /**
-   * Load selected ONNX models and initialize the simulator
+   * Load selected ONNX models from Supabase storage and initialize the simulator
+   * Downloads the user's trained models and creates ONNX Runtime sessions
    */
   private async loadModels(): Promise<void> {
     try {
@@ -251,9 +251,9 @@ export class Testbed {
         return;
       }
       
-      console.log('Loading models...', {
-        roaster: this.selectedRoasterModelId,
-        bean: this.selectedBeanModelId
+      console.log('Loading ONNX models from Supabase storage...', {
+        roasterId: this.selectedRoasterModelId,
+        beanId: this.selectedBeanModelId
       });
       
       // Disable load button and show loading state
@@ -268,22 +268,114 @@ export class Testbed {
         this.loadingDiv.style.display = 'block';
       }
       
-      // TODO: Download models from Supabase storage and load them
-      // Storage path format: {user_id}/jobs/{job_id}/model.onnx
-      // For now, use placeholder pre-trained models from public folder
-      // This will be replaced with actual Supabase storage download logic
-      
       // Configure ONNX Runtime Web
       if (typeof ort !== 'undefined') {
         ort.env.wasm.numThreads = 1; // Single-threaded to avoid WASM issues
         ort.env.wasm.simd = true; // Enable SIMD for performance
+        console.log('✓ ONNX Runtime configured');
+      } else {
+        throw new Error('ONNX Runtime not available - please ensure ort is loaded from CDN');
       }
       
-      // Create a TestbedSimulator instance (no need for element remapping)
+      // Get current user
+      console.log('Getting authenticated user...');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+      if (!user) {
+        throw new Error('Not authenticated - please log in');
+      }
+      console.log('✓ User authenticated:', user.id);
+      
+      // First, let's check what files exist in storage for debugging
+      await this.listStorageFiles(user.id, this.selectedRoasterModelId);
+      await this.listStorageFiles(user.id, this.selectedBeanModelId);
+      
+      // Download roaster model (roast_stepper.onnx)
+      console.log('Downloading roaster model...');
+      const roasterModelBlob = await this.downloadModelFromStorage(
+        user.id,
+        this.selectedRoasterModelId,
+        'roast_stepper.onnx'
+      );
+      
+      // Validate blob before attempting to load
+      console.log(`Roaster model blob size: ${roasterModelBlob.size} bytes, type: ${roasterModelBlob.type}`);
+      if (roasterModelBlob.size === 0) {
+        throw new Error('Downloaded roaster model file is empty');
+      }
+      
+      // Get bean model metadata to find the correct filename
+      console.log('Fetching bean model metadata...');
+      const { data: beanJobData, error: beanJobError } = await supabase
+        .from('training_jobs')
+        .select('config')
+        .eq('id', this.selectedBeanModelId)
+        .single();
+      
+      if (beanJobError) {
+        throw new Error(`Failed to fetch bean model metadata: ${beanJobError.message}`);
+      }
+      
+      // Log the config structure for debugging
+      console.log('Bean model config:', JSON.stringify(beanJobData?.config, null, 2));
+      
+      // Try to extract bean variety from config
+      // Check multiple possible locations where it might be stored
+      let beanVariety = beanJobData?.config?.bean_variety || 
+                        beanJobData?.config?.variety ||
+                        beanJobData?.config?.bean?.variety;
+      
+      let beanModelFilename: string;
+      
+      if (beanVariety) {
+        // If we found the variety in config, use it
+        beanModelFilename = `bean_${beanVariety.toLowerCase()}.onnx`;
+        console.log(`Bean model filename from config: ${beanModelFilename}`);
+      } else {
+        // Fallback: List files in storage and find the bean model
+        console.log('Bean variety not found in config, searching storage for bean model file...');
+        const storagePath = `${user.id}/jobs/${this.selectedBeanModelId}`;
+        const { data: files, error: listError } = await supabase.storage
+          .from('trained-models')
+          .list(storagePath);
+        
+        if (listError) {
+          throw new Error(`Failed to list storage files: ${listError.message}`);
+        }
+        
+        // Find any file that starts with "bean_" and ends with ".onnx"
+        const beanModelFile = files?.find(f => f.name.startsWith('bean_') && f.name.endsWith('.onnx'));
+        
+        if (!beanModelFile) {
+          throw new Error(`No bean model file (bean_*.onnx) found in storage at ${storagePath}. Available files: ${files?.map(f => f.name).join(', ')}`);
+        }
+        
+        beanModelFilename = beanModelFile.name;
+        console.log(`Bean model filename from storage: ${beanModelFilename}`);
+      }
+      
+      // Download bean model (bean_{variety}.onnx)
+      console.log('Downloading bean model...');
+      const beanModelBlob = await this.downloadModelFromStorage(
+        user.id,
+        this.selectedBeanModelId,
+        beanModelFilename
+      );
+      
+      // Validate blob before attempting to load
+      console.log(`Bean model blob size: ${beanModelBlob.size} bytes, type: ${beanModelBlob.type}`);
+      if (beanModelBlob.size === 0) {
+        throw new Error('Downloaded bean model file is empty');
+      }
+      
+      // Create a TestbedSimulator instance and pass the downloaded models
       this.simulator = new TestbedSimulator();
       
-      // Load the models
-      await this.simulator.loadModels();
+      // Load the models into the simulator
+      await this.simulator.loadModels(roasterModelBlob, beanModelBlob);
       
       // Hide model selection, show controls and simulator UI
       this.modelSelectionDiv.style.display = 'none';
@@ -343,6 +435,78 @@ export class Testbed {
       this.simulator = null;
       
       console.log('Testbed reset');
+    }
+  }
+  
+  /**
+   * List files in a storage directory for debugging
+   * @param userId - User ID
+   * @param jobId - Job ID
+   */
+  private async listStorageFiles(userId: string, jobId: string): Promise<void> {
+    try {
+      const storagePath = `${userId}/jobs/${jobId}`;
+      console.log(`Listing files in storage path: ${storagePath}`);
+      
+      const { data, error } = await supabase.storage
+        .from('trained-models')
+        .list(storagePath);
+      
+      if (error) {
+        console.warn(`Could not list files in ${storagePath}:`, error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        console.log(`Files found in ${storagePath}:`, data.map(f => f.name));
+      } else {
+        console.warn(`No files found in ${storagePath}`);
+      }
+    } catch (error) {
+      console.warn('Error listing storage files:', error);
+    }
+  }
+  
+  /**
+   * Download an ONNX model file from Supabase storage
+   * Models are stored at: {user_id}/jobs/{job_id}/{filename}
+   * 
+   * @param userId - User ID (owner of the trained model)
+   * @param jobId - Training job ID (completed training job)
+   * @param filename - Name of the ONNX file to download (e.g., 'roast_stepper.onnx', 'bean_{variety}.onnx')
+   * @returns Promise<Blob> - The ONNX model file as a Blob
+   */
+  private async downloadModelFromStorage(
+    userId: string,
+    jobId: string,
+    filename: string
+  ): Promise<Blob> {
+    try {
+      // Construct storage path: {user_id}/jobs/{job_id}/{filename}
+      const storagePath = `${userId}/jobs/${jobId}/${filename}`;
+      
+      console.log(`Downloading model from storage: ${storagePath}`);
+      
+      // Download the file from Supabase storage bucket 'trained-models'
+      const { data, error } = await supabase.storage
+        .from('trained-models')
+        .download(storagePath);
+      
+      if (error) {
+        console.error(`Storage download error for ${filename}:`, error);
+        throw new Error(`Failed to download ${filename} from storage: ${error.message || JSON.stringify(error)}`);
+      }
+      
+      if (!data) {
+        throw new Error(`No data received when downloading ${filename} from ${storagePath}`);
+      }
+      
+      console.log(`✓ Successfully downloaded ${filename} (${data.size} bytes)`);
+      return data;
+      
+    } catch (error: any) {
+      console.error(`Error in downloadModelFromStorage for ${filename}:`, error);
+      throw new Error(`Failed to download ${filename}: ${error.message || error.toString()}`);
     }
   }
   

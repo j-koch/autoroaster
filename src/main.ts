@@ -22,7 +22,7 @@ async function main(): Promise<void> {
     
     // Configure ONNX Runtime Web BEFORE any model loading
     // Use CDN for WASM files to avoid bundling issues
-    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.16.3/dist/';
+    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.0/dist/';
     ort.env.wasm.numThreads = 1; // Disable multi-threading for compatibility
     ort.env.wasm.simd = true; // Enable SIMD for performance
     

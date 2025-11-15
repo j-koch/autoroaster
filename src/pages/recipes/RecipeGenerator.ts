@@ -316,9 +316,8 @@ export class RecipeGenerator {
   }
   
   /**
-   * Load selected ONNX models
-   * For now, loads the static models from the public directory
-   * TODO: In future, download user's trained models from Supabase storage
+   * Load selected ONNX models from Supabase storage
+   * Downloads the user's trained models and creates ONNX Runtime sessions
    */
   private async loadModels(): Promise<void> {
     try {
@@ -332,28 +331,165 @@ export class RecipeGenerator {
       this.loadingDiv.style.display = 'block';
       this.errorDiv.style.display = 'none';
       
-      console.log('Loading ONNX models from public directory...');
+      console.log('Loading ONNX models from Supabase storage...', {
+        roasterId: this.selectedRoasterModelId,
+        beanId: this.selectedBeanModelId
+      });
       
       // Configure ONNX Runtime
       if (typeof ort !== 'undefined') {
         ort.env.wasm.numThreads = 1;
         ort.env.wasm.simd = true;
+        console.log('✓ ONNX Runtime configured');
+      } else {
+        throw new Error('ONNX Runtime not available - please ensure ort is loaded from CDN');
       }
       
-      // Get base URL from Vite
-      const baseUrl = import.meta.env.BASE_URL;
+      // Get current user
+      console.log('Getting authenticated user...');
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        console.error('Auth error:', authError);
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+      if (!user) {
+        throw new Error('Not authenticated - please log in');
+      }
+      console.log('✓ User authenticated:', user.id);
       
-      // Load roaster system models (roast_stepper)
-      // Note: state_estimator is not used in recipe generation
-      console.log('Loading roast stepper...');
-      this.roasterSession = await ort.InferenceSession.create(`${baseUrl}onnx_models/roast_stepper.onnx`);
-      console.log('✓ Roast stepper loaded');
+      // First, let's check what files exist in storage for debugging
+      await this.listStorageFiles(user.id, this.selectedRoasterModelId);
+      await this.listStorageFiles(user.id, this.selectedBeanModelId);
       
-      // Load bean model (default to bean_guji.onnx for now)
-      // TODO: Map selectedBeanModelId to actual bean model files
-      console.log('Loading bean model...');
-      this.beanSession = await ort.InferenceSession.create(`${baseUrl}onnx_models/bean_guji.onnx`);
-      console.log('✓ Bean model loaded');
+      // Download roaster model (roast_stepper.onnx)
+      console.log('Downloading roaster model...');
+      const roasterModelBlob = await this.downloadModelFromStorage(
+        user.id,
+        this.selectedRoasterModelId,
+        'roast_stepper.onnx'
+      );
+      
+      // Validate blob before attempting to load
+      console.log(`Roaster model blob size: ${roasterModelBlob.size} bytes, type: ${roasterModelBlob.type}`);
+      if (roasterModelBlob.size === 0) {
+        throw new Error('Downloaded roaster model file is empty');
+      }
+      
+      // Try loading with ArrayBuffer (sometimes more reliable despite URL being preferred)
+      console.log('Creating ONNX session for roaster model using ArrayBuffer...');
+      try {
+        const arrayBuffer = await roasterModelBlob.arrayBuffer();
+        console.log(`ArrayBuffer created, size: ${arrayBuffer.byteLength} bytes`);
+        
+        // Create session with explicit options
+        this.roasterSession = await ort.InferenceSession.create(arrayBuffer, {
+          executionProviders: ['wasm'],
+          graphOptimizationLevel: 'all'
+        });
+        console.log('✓ Roaster model loaded successfully');
+      } catch (onnxError: any) {
+        console.error('ONNX Runtime error loading roaster model:', onnxError);
+        console.error('Error type:', typeof onnxError);
+        console.error('Error details:', {
+          message: onnxError.message,
+          name: onnxError.name,
+          stack: onnxError.stack
+        });
+        
+        // Provide more specific error message
+        const errorCode = typeof onnxError === 'number' ? onnxError : onnxError.message;
+        throw new Error(`Failed to create ONNX session for roaster model. Error: ${errorCode}. The model file may be corrupted or incompatible with ONNX Runtime Web. Please try retraining the model.`);
+      }
+      
+      // Get bean model metadata to find the correct filename
+      console.log('Fetching bean model metadata...');
+      const { data: beanJobData, error: beanJobError } = await supabase
+        .from('training_jobs')
+        .select('config')
+        .eq('id', this.selectedBeanModelId)
+        .single();
+      
+      if (beanJobError) {
+        throw new Error(`Failed to fetch bean model metadata: ${beanJobError.message}`);
+      }
+      
+      // Log the config structure for debugging
+      console.log('Bean model config:', JSON.stringify(beanJobData?.config, null, 2));
+      
+      // Try to extract bean variety from config
+      // Check multiple possible locations where it might be stored
+      let beanVariety = beanJobData?.config?.bean_variety || 
+                        beanJobData?.config?.variety ||
+                        beanJobData?.config?.bean?.variety;
+      
+      let beanModelFilename: string;
+      
+      if (beanVariety) {
+        // If we found the variety in config, use it
+        beanModelFilename = `bean_${beanVariety.toLowerCase()}.onnx`;
+        console.log(`Bean model filename from config: ${beanModelFilename}`);
+      } else {
+        // Fallback: List files in storage and find the bean model
+        console.log('Bean variety not found in config, searching storage for bean model file...');
+        const storagePath = `${user.id}/jobs/${this.selectedBeanModelId}`;
+        const { data: files, error: listError } = await supabase.storage
+          .from('trained-models')
+          .list(storagePath);
+        
+        if (listError) {
+          throw new Error(`Failed to list storage files: ${listError.message}`);
+        }
+        
+        // Find any file that starts with "bean_" and ends with ".onnx"
+        const beanModelFile = files?.find(f => f.name.startsWith('bean_') && f.name.endsWith('.onnx'));
+        
+        if (!beanModelFile) {
+          throw new Error(`No bean model file (bean_*.onnx) found in storage at ${storagePath}. Available files: ${files?.map(f => f.name).join(', ')}`);
+        }
+        
+        beanModelFilename = beanModelFile.name;
+        console.log(`Bean model filename from storage: ${beanModelFilename}`);
+      }
+      
+      // Download bean model (bean_{variety}.onnx)
+      console.log('Downloading bean model...');
+      const beanModelBlob = await this.downloadModelFromStorage(
+        user.id,
+        this.selectedBeanModelId,
+        beanModelFilename
+      );
+      
+      // Validate blob before attempting to load
+      console.log(`Bean model blob size: ${beanModelBlob.size} bytes, type: ${beanModelBlob.type}`);
+      if (beanModelBlob.size === 0) {
+        throw new Error('Downloaded bean model file is empty');
+      }
+      
+      // Try loading with ArrayBuffer (sometimes more reliable despite URL being preferred)
+      console.log('Creating ONNX session for bean model using ArrayBuffer...');
+      try {
+        const arrayBuffer = await beanModelBlob.arrayBuffer();
+        console.log(`ArrayBuffer created, size: ${arrayBuffer.byteLength} bytes`);
+        
+        // Create session with explicit options
+        this.beanSession = await ort.InferenceSession.create(arrayBuffer, {
+          executionProviders: ['wasm'],
+          graphOptimizationLevel: 'all'
+        });
+        console.log('✓ Bean model loaded successfully');
+      } catch (onnxError: any) {
+        console.error('ONNX Runtime error loading bean model:', onnxError);
+        console.error('Error type:', typeof onnxError);
+        console.error('Error details:', {
+          message: onnxError.message,
+          name: onnxError.name,
+          stack: onnxError.stack
+        });
+        
+        // Provide more specific error message
+        const errorCode = typeof onnxError === 'number' ? onnxError : onnxError.message;
+        throw new Error(`Failed to create ONNX session for bean model. Error: ${errorCode}. The model file may be corrupted or incompatible with ONNX Runtime Web. Please try retraining the model.`);
+      }
       
       // Show UI
       this.modelSelectionDiv.style.display = 'none';
@@ -375,12 +511,85 @@ export class RecipeGenerator {
       
       console.log('✅ All models loaded successfully');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load models:', error);
-      this.showError(`Failed to load models: ${(error as Error).message}`);
+      const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+      this.showError(`Failed to load models: ${errorMessage}`);
       this.loadBtn.disabled = false;
       this.loadBtn.textContent = 'Load Models & Start';
       this.loadingDiv.style.display = 'none';
+    }
+  }
+  
+  /**
+   * List files in a storage directory for debugging
+   * @param userId - User ID
+   * @param jobId - Job ID
+   */
+  private async listStorageFiles(userId: string, jobId: string): Promise<void> {
+    try {
+      const storagePath = `${userId}/jobs/${jobId}`;
+      console.log(`Listing files in storage path: ${storagePath}`);
+      
+      const { data, error } = await supabase.storage
+        .from('trained-models')
+        .list(storagePath);
+      
+      if (error) {
+        console.warn(`Could not list files in ${storagePath}:`, error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        console.log(`Files found in ${storagePath}:`, data.map(f => f.name));
+      } else {
+        console.warn(`No files found in ${storagePath}`);
+      }
+    } catch (error) {
+      console.warn('Error listing storage files:', error);
+    }
+  }
+  
+  /**
+   * Download an ONNX model file from Supabase storage
+   * Models are stored at: {user_id}/jobs/{job_id}/{filename}
+   * 
+   * @param userId - User ID (owner of the trained model)
+   * @param jobId - Training job ID (completed training job)
+   * @param filename - Name of the ONNX file to download (e.g., 'roast_stepper.onnx', 'bean_model.onnx')
+   * @returns Promise<Blob> - The ONNX model file as a Blob
+   */
+  private async downloadModelFromStorage(
+    userId: string,
+    jobId: string,
+    filename: string
+  ): Promise<Blob> {
+    try {
+      // Construct storage path: {user_id}/jobs/{job_id}/{filename}
+      const storagePath = `${userId}/jobs/${jobId}/${filename}`;
+      
+      console.log(`Downloading model from storage: ${storagePath}`);
+      
+      // Download the file from Supabase storage bucket 'trained-models'
+      const { data, error } = await supabase.storage
+        .from('trained-models')
+        .download(storagePath);
+      
+      if (error) {
+        console.error(`Storage download error for ${filename}:`, error);
+        throw new Error(`Failed to download ${filename} from storage: ${error.message || JSON.stringify(error)}`);
+      }
+      
+      if (!data) {
+        throw new Error(`No data received when downloading ${filename} from ${storagePath}`);
+      }
+      
+      console.log(`✓ Successfully downloaded ${filename} (${data.size} bytes)`);
+      return data;
+      
+    } catch (error: any) {
+      console.error(`Error in downloadModelFromStorage for ${filename}:`, error);
+      throw new Error(`Failed to download ${filename}: ${error.message || error.toString()}`);
     }
   }
   
@@ -872,10 +1081,10 @@ export class RecipeGenerator {
       // State vector: [T_r, T_b, T_air, T_bm, T_atm]
       // Use the adjustable preheat temperature (bean probe initial temperature)
       const preheatTemp = this.preheatTempC; // Bean probe/measurement temp (adjustable via UI slider)
-      const roomTemp = 25.0; // Bean core starts at room temperature (°C)
-      const roasterTemp = preheatTemp + 80.0; // Roaster/drum temp is typically higher than bean probe (°C)
+      const roomTemp = 20.0; // Bean core starts at room temperature (°C)
+      const roasterTemp = preheatTemp + 30.0; // Roaster/drum temp is typically higher than bean probe (°C)
       const airTemp = preheatTemp; // T_air (air surrounding beans) starts at bean probe temp (°C)
-      const envTemp = preheatTemp - 40.0; // T_env (air surrounding drum) is ~40°C below bean probe (°C)
+      const envTemp = preheatTemp - 50.0; // T_env (air surrounding drum) is ~40°C below bean probe (°C)
       
       // Normalize using scaling factors
       const tempScale = this.scalingFactors.temperatures.bean;

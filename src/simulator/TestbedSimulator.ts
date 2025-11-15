@@ -278,18 +278,36 @@ export class TestbedSimulator {
   }
   
   /**
-   * Load ONNX models
+   * Load ONNX models from downloaded Blobs
+   * @param roasterModelBlob - Blob containing the roaster model (required)
+   * @param beanModelBlob - Blob containing the bean model (required)
    */
-  async loadModels(): Promise<void> {
+  async loadModels(roasterModelBlob: Blob, beanModelBlob: Blob): Promise<void> {
     try {
-      console.log('Loading testbed ONNX models...');
+      console.log('Loading testbed ONNX models from downloaded blobs...');
       
-      const baseUrl = import.meta.env.BASE_URL;
+      // Validate that blobs are provided
+      if (!roasterModelBlob || !beanModelBlob) {
+        throw new Error('Both roaster and bean model blobs must be provided');
+      }
       
-      // Load model components
-      this.sessions.stateEstimator = await ort.InferenceSession.create(`${baseUrl}onnx_models/state_estimator.onnx`);
-      this.sessions.roastStepper = await ort.InferenceSession.create(`${baseUrl}onnx_models/roast_stepper.onnx`);
-      this.sessions.beanModel = await ort.InferenceSession.create(`${baseUrl}onnx_models/bean_guji.onnx`);
+      // Load roast stepper model from Blob
+      console.log('Loading roaster model from Blob...');
+      const roasterArrayBuffer = await roasterModelBlob.arrayBuffer();
+      this.sessions.roastStepper = await ort.InferenceSession.create(roasterArrayBuffer, {
+        executionProviders: ['wasm'],
+        graphOptimizationLevel: 'all'
+      });
+      console.log('✓ Roast stepper loaded from Supabase');
+      
+      // Load bean model from Blob
+      console.log('Loading bean model from Blob...');
+      const beanArrayBuffer = await beanModelBlob.arrayBuffer();
+      this.sessions.beanModel = await ort.InferenceSession.create(beanArrayBuffer, {
+        executionProviders: ['wasm'],
+        graphOptimizationLevel: 'all'
+      });
+      console.log('✓ Bean model loaded from Supabase');
       
       console.log('✅ Testbed ONNX models loaded successfully');
       

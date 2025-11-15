@@ -172,12 +172,20 @@ class RoasterSimulator {
             this.selectedBeanModel = e.target.value;
             console.log(`Bean model changed to: ${this.selectedBeanModel}`);
             
-            // Reload the bean model
+            // Reload the bean model with consistent session options
             try {
+                const sessionOptions = {
+                    executionProviders: ['wasm'],
+                    graphOptimizationLevel: 'all'
+                };
+                
                 const beanModelPath = `onnx_models/${this.selectedBeanModel}`;
                 console.log(`Loading bean model from: ${beanModelPath}`);
-                this.sessions.beanModel = await ort.InferenceSession.create(beanModelPath);
-                console.log('Bean model loaded successfully');
+                this.sessions.beanModel = await ort.InferenceSession.create(
+                    beanModelPath,
+                    sessionOptions
+                );
+                console.log('✓ Bean model loaded successfully');
             } catch (error) {
                 console.error('Error loading bean model:', error);
                 this.showError('Failed to load bean model: ' + error.message);
@@ -252,16 +260,44 @@ class RoasterSimulator {
         try {
             console.log('Loading ONNX models...');
             
-            // Load each model component (no observer model needed)
-            this.sessions.stateEstimator = await ort.InferenceSession.create('onnx_models/state_estimator.onnx');
-            this.sessions.roastStepper = await ort.InferenceSession.create('onnx_models/roast_stepper.onnx');
+            // Configure ONNX Runtime (matching RecipeGenerator.ts approach)
+            if (typeof ort !== 'undefined') {
+                ort.env.wasm.numThreads = 1;
+                ort.env.wasm.simd = true;
+                console.log('✓ ONNX Runtime configured');
+            }
+            
+            // Load each model component with explicit options
+            // Using consistent session creation options across all models
+            const sessionOptions = {
+                executionProviders: ['wasm'],
+                graphOptimizationLevel: 'all'
+            };
+            
+            console.log('Loading state estimator model...');
+            this.sessions.stateEstimator = await ort.InferenceSession.create(
+                'onnx_models/state_estimator.onnx',
+                sessionOptions
+            );
+            console.log('✓ State estimator model loaded');
+            
+            console.log('Loading roast stepper model...');
+            this.sessions.roastStepper = await ort.InferenceSession.create(
+                'onnx_models/roast_stepper.onnx',
+                sessionOptions
+            );
+            console.log('✓ Roast stepper model loaded');
             
             // Load the selected bean model (uses this.selectedBeanModel which defaults to 'bean_guji.onnx')
             const beanModelPath = `onnx_models/${this.selectedBeanModel}`;
             console.log(`Loading bean model from: ${beanModelPath}`);
-            this.sessions.beanModel = await ort.InferenceSession.create(beanModelPath);
+            this.sessions.beanModel = await ort.InferenceSession.create(
+                beanModelPath,
+                sessionOptions
+            );
+            console.log('✓ Bean model loaded');
             
-            console.log('All ONNX models loaded successfully');
+            console.log('✅ All ONNX models loaded successfully');
             
             // Load neural controller (optional - will fail gracefully if not available)
             await this.loadNeuralController();
@@ -303,10 +339,17 @@ class RoasterSimulator {
             this.neuralControllerConfig = this.parseYAML(metadataText);
             console.log('Parsed metadata:', this.neuralControllerConfig);
             
-            // Load ONNX controller model
+            // Load ONNX controller model with consistent session options
             console.log('Loading ONNX model from: onnx_models/control_policy.onnx');
-            const controllerSession = await ort.InferenceSession.create('onnx_models/control_policy.onnx');
-            console.log('ONNX model loaded successfully');
+            const sessionOptions = {
+                executionProviders: ['wasm'],
+                graphOptimizationLevel: 'all'
+            };
+            const controllerSession = await ort.InferenceSession.create(
+                'onnx_models/control_policy.onnx',
+                sessionOptions
+            );
+            console.log('✓ ONNX model loaded successfully');
             
             // Initialize neural controller
             this.neuralController = new NeuralController(

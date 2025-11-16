@@ -49,7 +49,6 @@ const floatingToggleLayersBtn = document.getElementById('floating-toggle-layers'
 const canvasLayout = document.getElementById('canvas-layout') as HTMLDivElement;
 const layerPanel = document.getElementById('layer-panel') as HTMLElement;
 const propertiesPanel = document.getElementById('properties-panel') as HTMLElement;
-const navigationSidebar = document.querySelector('.sidebar') as HTMLElement;
 
 // Panel visibility state
 let layersPanelVisible = true;

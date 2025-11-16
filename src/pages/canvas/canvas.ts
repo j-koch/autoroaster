@@ -125,6 +125,12 @@ async function handleSignOut(): Promise<void> {
  * Show the layer type selector modal
  */
 function showLayerTypeSelector(): void {
+    // If the layers panel is collapsed, open it first
+    // This ensures the layer type selector (which is inside the panel) is visible
+    if (!layersPanelVisible) {
+        toggleLayersPanel();
+    }
+    
     layerTypeSelector.style.display = 'block';
 }
 

@@ -35,6 +35,7 @@ export interface LayerStyle {
   lineDash: number[];          // Dash pattern for lines (empty = solid)
   fill: boolean;               // Whether to fill area under line
   fillOpacity: number;         // Opacity of fill (0-1)
+  stepped?: boolean | 'before' | 'after' | 'middle';  // Step line interpolation mode
 }
 
 /**

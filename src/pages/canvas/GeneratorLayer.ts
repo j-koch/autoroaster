@@ -14,6 +14,11 @@
 import { supabase } from '../../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { GeneratorLayerConfig, DataSeries } from './types';
+import { Chart, registerables } from 'chart.js';
+import 'chartjs-plugin-dragdata';
+
+// Register Chart.js components
+Chart.register(...registerables);
 
 // Declare ONNX Runtime global from CDN
 declare const ort: any;
@@ -29,6 +34,25 @@ interface TrainingJob {
 }
 
 /**
+ * Regression coefficients for initial conditions
+ * Loaded from initial_conditions.json (computed by initial_conditions_finder.py)
+ */
+interface RegressionCoefficients {
+  T_env: {
+    a: number;  // Slope: T_env = a * T_bm + b
+    b: number;  // Intercept
+    r_squared: number;  // R² value (quality of fit)
+    formula: string;
+  };
+  T_r: {
+    a: number;  // Slope: T_r = a * T_bm + b
+    b: number;  // Intercept
+    r_squared: number;  // R² value (quality of fit)
+    formula: string;
+  };
+}
+
+/**
  * GeneratorLayer class
  * Handles all recipe generator layer operations
  */
@@ -40,6 +64,10 @@ export class GeneratorLayer {
   private roasterSession: any = null;
   private beanSession: any = null;
   
+  // Initial conditions regression coefficients (loaded from initial_conditions.json)
+  // These provide a more consistent way to set initial conditions based on T_bm
+  private initialConditionsCoefficients: RegressionCoefficients | null = null;
+  
   // Simulated results cache
   private simulatedResults: {
     time: number[];
@@ -50,6 +78,19 @@ export class GeneratorLayer {
     env_probe_temp: number[];
     ror: number[];
   } | null = null;
+  
+  // Control editor chart instance
+  private controlChart: any = null;
+  
+  // Active control being edited (heat, fan, or drum)
+  private activeControl: 'heater' | 'fan' | 'drum' = 'heater';
+  
+  // Click tracking for double-click detection (to add control points)
+  private lastClickTime: number = 0;
+  private lastClickX: number = 0;
+  private lastClickY: number = 0;
+  private readonly DOUBLE_CLICK_TIME = 300; // milliseconds
+  private readonly DOUBLE_CLICK_DISTANCE = 10; // pixels
   
   // Callback for when configuration changes (to trigger chart update)
   private onConfigChange: () => void;
@@ -148,6 +189,39 @@ export class GeneratorLayer {
         <div id="gen-bean-table-container" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">
           <!-- Bean model table will be inserted here -->
         </div>
+      </div>
+      
+      <!-- Control Profile Editor Section -->
+      <h4 style="margin-top: 20px; margin-bottom: 10px;">Control Profile Editor</h4>
+      
+      <div class="property-group">
+        <label class="property-label">Edit Control Curve</label>
+        <div class="control-selector" style="display: flex; gap: 8px; margin-top: 8px; margin-bottom: 12px;">
+          <button class="control-selector-btn active" data-control="heater" style="flex: 1; padding: 8px; border: 2px solid #e74c3c; background: #e74c3c; color: white; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            Heat
+          </button>
+          <button class="control-selector-btn" data-control="fan" style="flex: 1; padding: 8px; border: 2px solid #3498db; background: transparent; color: #3498db; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            Fan
+          </button>
+          <button class="control-selector-btn" data-control="drum" style="flex: 1; padding: 8px; border: 2px solid #9b59b6; background: transparent; color: #9b59b6; border-radius: 4px; cursor: pointer; font-weight: bold;">
+            Drum
+          </button>
+        </div>
+        
+        <!-- Control editor canvas -->
+        <div style="height: 250px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 4px; background: white;">
+          <canvas id="gen-control-chart"></canvas>
+        </div>
+        
+        <!-- Instructions and Artisan snap -->
+        <div style="font-size: 11px; color: #666; margin-bottom: 8px;">
+          <strong>Instructions:</strong> Double-click to add point • Click point to remove • Drag to adjust
+        </div>
+        
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px;">
+          <input type="checkbox" id="gen-artisan-snap" checked>
+          <span>Snap to Artisan increments (5%)</span>
+        </label>
       </div>
       
       <!-- Parameters Section -->
@@ -528,11 +602,76 @@ export class GeneratorLayer {
         console.log('✓ Bean model loaded');
       }
       
+      // Try to load initial conditions regression coefficients
+      // This is optional - if not found, we'll fall back to hardcoded offsets
+      await this.loadInitialConditionsCoefficients(this.user.id, this.config.roasterModelId);
+      
       this.showStatus('Models loaded successfully', 'success');
+      
+      // Initialize control editor if not already initialized
+      if (!this.controlChart) {
+        this.initializeControlEditor();
+      }
+      
+      // Run initial simulation
+      await this.simulateProfile();
       
     } catch (error) {
       console.error('Failed to load models:', error);
       this.showStatus(`Failed to load models: ${(error as Error).message}`, 'error');
+    }
+  }
+  
+  /**
+   * Load initial conditions regression coefficients from Supabase storage
+   * This is optional - if not found, we'll fall back to hardcoded offsets
+   * 
+   * @param userId - User ID
+   * @param roasterJobId - Roaster model job ID
+   */
+  private async loadInitialConditionsCoefficients(userId: string, roasterJobId: string): Promise<void> {
+    try {
+      console.log('Attempting to load initial conditions coefficients...');
+      
+      // Try to download initial_conditions.json from roaster model storage
+      const storagePath = `${userId}/jobs/${roasterJobId}/initial_conditions.json`;
+      
+      const { data, error } = await supabase.storage
+        .from('trained-models')
+        .download(storagePath);
+      
+      if (error) {
+        console.warn('Initial conditions file not found, will use hardcoded offsets:', error);
+        return;
+      }
+      
+      if (!data) {
+        console.warn('No data in initial conditions file');
+        return;
+      }
+      
+      // Parse JSON from blob
+      const text = await data.text();
+      const initialConditionsData = JSON.parse(text);
+      
+      // Extract regression coefficients
+      if (initialConditionsData.regression_coefficients) {
+        const coeffs = initialConditionsData.regression_coefficients;
+        this.initialConditionsCoefficients = coeffs;
+        
+        console.log('✓ Initial conditions coefficients loaded:', {
+          T_env: coeffs.T_env.formula,
+          T_r: coeffs.T_r.formula,
+          T_env_r2: coeffs.T_env.r_squared.toFixed(4),
+          T_r_r2: coeffs.T_r.r_squared.toFixed(4)
+        });
+      } else {
+        console.warn('No regression coefficients found in initial conditions file');
+      }
+      
+    } catch (error) {
+      console.warn('Failed to load initial conditions coefficients:', error);
+      // Not a critical error - we'll fall back to hardcoded offsets
     }
   }
   
@@ -660,10 +799,36 @@ export class GeneratorLayer {
       const preheatTemp = this.config.preheatTempC;  // Bean probe initial temperature (°C)
       const roomTemp = this.config.ambientTempC;     // Bean core starts at ambient (°C)
       
-      // Initial temperatures (in °C, will be normalized)
-      const roasterTemp = preheatTemp + 50.0;  // Roaster/drum temp ~50°C above bean probe
-      const envTemp = preheatTemp - 40.0;      // Environment temp ~40°C below bean probe
-      const airTemp = preheatTemp;             // Air temp starts at bean probe temp
+      // Calculate initial conditions using regression coefficients if available
+      // Otherwise fall back to hardcoded offsets
+      let roasterTemp: number;
+      let envTemp: number;
+      
+      if (this.initialConditionsCoefficients) {
+        // Use linear regression: T = a * T_bm + b
+        roasterTemp = this.initialConditionsCoefficients.T_r.a * preheatTemp + 
+                      this.initialConditionsCoefficients.T_r.b;
+        envTemp = this.initialConditionsCoefficients.T_env.a * preheatTemp + 
+                  this.initialConditionsCoefficients.T_env.b;
+        
+        console.log('Using regression-based initial conditions:', {
+          T_bm: preheatTemp.toFixed(1) + '°C',
+          T_r: roasterTemp.toFixed(1) + '°C (from regression)',
+          T_env: envTemp.toFixed(1) + '°C (from regression)'
+        });
+      } else {
+        // Fallback to hardcoded offsets (original behavior)
+        roasterTemp = preheatTemp + 50.0;  // Roaster/drum temp ~50°C above bean probe
+        envTemp = preheatTemp - 40.0;      // Environment temp ~40°C below bean probe
+        
+        console.log('Using hardcoded offsets for initial conditions:', {
+          T_bm: preheatTemp.toFixed(1) + '°C',
+          T_r: roasterTemp.toFixed(1) + '°C (T_bm + 50)',
+          T_env: envTemp.toFixed(1) + '°C (T_bm - 40)'
+        });
+      }
+      
+      const airTemp = preheatTemp;  // Air temp starts at bean probe temp
       
       // Normalize using scaling factors
       const tempScale = this.scalingFactors.temperatures.bean;
@@ -1001,6 +1166,8 @@ export class GeneratorLayer {
     });
     
     // Control traces (scaled to 0-100 range, same as temperatures)
+    // Controls are piecewise constant functions - use Chart.js stepped mode
+    
     // Heater control
     series.push({
       label: 'Heater (Generated)',
@@ -1011,11 +1178,12 @@ export class GeneratorLayer {
       style: {
         color: '#e74c3c',
         lineWidth: 2,
-        showPoints: true,
-        pointRadius: 4,
+        showPoints: false,
+        pointRadius: 0,
         lineDash: [],
         fill: false,
-        fillOpacity: 0
+        fillOpacity: 0,
+        stepped: 'before'  // Piecewise constant with 'before' stepping
       },
       yAxisID: 'y'
     });
@@ -1030,11 +1198,12 @@ export class GeneratorLayer {
       style: {
         color: '#3498db',
         lineWidth: 2,
-        showPoints: true,
-        pointRadius: 4,
+        showPoints: false,
+        pointRadius: 0,
         lineDash: [],
         fill: false,
-        fillOpacity: 0
+        fillOpacity: 0,
+        stepped: 'before'  // Piecewise constant with 'before' stepping
       },
       yAxisID: 'y'
     });
@@ -1049,11 +1218,12 @@ export class GeneratorLayer {
       style: {
         color: '#9b59b6',
         lineWidth: 2,
-        showPoints: true,
-        pointRadius: 4,
+        showPoints: false,
+        pointRadius: 0,
         lineDash: [],
         fill: false,
-        fillOpacity: 0
+        fillOpacity: 0,
+        stepped: 'before'  // Piecewise constant with 'before' stepping
       },
       yAxisID: 'y'
     });
@@ -1090,5 +1260,398 @@ export class GeneratorLayer {
     setTimeout(() => {
       statusDiv.style.display = 'none';
     }, 3000);
+  }
+  
+  /**
+   * Initialize the interactive control editor with Chart.js
+   * Creates a chart showing heater, fan, and drum control curves
+   * Only one control is editable at a time (selected via buttons)
+   */
+  private initializeControlEditor(): void {
+    const canvas = document.getElementById('gen-control-chart') as HTMLCanvasElement;
+    if (!canvas) {
+      console.error('Control chart canvas not found');
+      return;
+    }
+    
+    // Prepare datasets for all three controls
+    const heaterData = this.config.heaterProfile.map(p => ({ x: p.time, y: p.value * 100 }));
+    const fanData = this.config.fanProfile.map(p => ({ x: p.time, y: p.value * 100 }));
+    const drumData = this.config.drumProfile.map(p => ({ x: p.time, y: p.value * 100 }));
+    
+    // Create the control chart with dragdata plugin
+    this.controlChart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Heater',
+            data: heaterData,
+            borderColor: '#e74c3c',
+            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+            pointBackgroundColor: '#e74c3c',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 2,
+            stepped: 'before',
+            fill: false
+          },
+          {
+            label: 'Fan',
+            data: fanData,
+            borderColor: '#3498db',
+            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+            pointBackgroundColor: '#3498db',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 2,
+            stepped: 'before',
+            fill: false
+          },
+          {
+            label: 'Drum',
+            data: drumData,
+            borderColor: '#9b59b6',
+            backgroundColor: 'rgba(155, 89, 182, 0.1)',
+            pointBackgroundColor: '#9b59b6',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 8,
+            pointHoverRadius: 10,
+            borderWidth: 2,
+            stepped: 'before',
+            fill: false
+          }
+        ]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context: any) => {
+                return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}% at ${context.parsed.x.toFixed(0)}s`;
+              }
+            }
+          },
+          dragData: {
+            round: 1,
+            showTooltip: true,
+            dragX: true,
+            onDragStart: (_e: any, datasetIndex: number, _index: number, _value: any) => {
+              // Only allow dragging the active control
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
+              return controlName === this.activeControl;
+            },
+            onDrag: ((_e: any, datasetIndex: number, index: number, value: any) => {
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
+              const points = this.config[`${controlName}Profile`] as { time: number; value: number }[];
+              
+              // Anchor first and last points at time 0 and durationSeconds
+              const currentPoint = points[index];
+              const isFirstPoint = currentPoint.time === 0;
+              const isLastPoint = currentPoint.time === this.config.durationSeconds;
+              
+              let constrainedX: number;
+              if (isFirstPoint) {
+                constrainedX = 0;
+              } else if (isLastPoint) {
+                constrainedX = this.config.durationSeconds;
+              } else {
+                constrainedX = Math.max(0, Math.min(this.config.durationSeconds, value.x));
+              }
+              
+              // Y (power) constrained to 0-100%
+              let constrainedY = Math.max(0, Math.min(1, value.y / 100));
+              
+              // Apply Artisan snapping if enabled
+              const snapCheckbox = document.getElementById('gen-artisan-snap') as HTMLInputElement;
+              if (snapCheckbox && snapCheckbox.checked) {
+                constrainedY = this.snapToArtisanIncrement(constrainedY);
+              }
+              
+              // Update the point
+              points[index].time = constrainedX;
+              points[index].value = constrainedY;
+              
+              return {
+                x: constrainedX,
+                y: constrainedY * 100
+              };
+            }) as any,
+            onDragEnd: (_e: any, datasetIndex: number, _index: number, _value: any) => {
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
+              const points = this.config[`${controlName}Profile`] as { time: number; value: number }[];
+              
+              // Sort points by time
+              points.sort((a, b) => a.time - b.time);
+              
+              // Update the chart data
+              const sortedData = points.map(p => ({ x: p.time, y: p.value * 100 }));
+              this.controlChart.data.datasets[datasetIndex].data = sortedData;
+              this.controlChart.update();
+              
+              // Automatically simulate after dragging
+              this.simulateProfile();
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: {
+              display: true,
+              text: 'Time (seconds)'
+            },
+            min: 0,
+            max: this.config.durationSeconds,
+            ticks: {
+              stepSize: 60
+            }
+          },
+          y: {
+            type: 'linear',
+            title: {
+              display: true,
+              text: 'Power (%)'
+            },
+            min: 0,
+            max: 100,
+            ticks: {
+              stepSize: 10
+            }
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          intersect: true
+        },
+        onClick: (event: any, activeElements: any[], chart: any) => {
+          const currentTime = Date.now();
+          const rect = canvas.getBoundingClientRect();
+          const clickX = event.native.clientX - rect.left;
+          const clickY = event.native.clientY - rect.top;
+          
+          // Check for double-click
+          const timeDiff = currentTime - this.lastClickTime;
+          const distX = Math.abs(clickX - this.lastClickX);
+          const distY = Math.abs(clickY - this.lastClickY);
+          const isDoubleClick = timeDiff < this.DOUBLE_CLICK_TIME && 
+                                distX < this.DOUBLE_CLICK_DISTANCE && 
+                                distY < this.DOUBLE_CLICK_DISTANCE;
+          
+          if (isDoubleClick) {
+            // Double-click: add a control point
+            const chartArea = chart.chartArea;
+            if (chartArea && clickX >= chartArea.left && clickX <= chartArea.right && 
+                clickY >= chartArea.top && clickY <= chartArea.bottom) {
+              
+              const xScale = chart.scales?.x;
+              const yScale = chart.scales?.y;
+              
+              if (xScale && yScale && xScale.getValueForPixel && yScale.getValueForPixel) {
+                const timeValue = xScale.getValueForPixel(clickX) as number;
+                const powerValue = yScale.getValueForPixel(clickY) as number;
+                
+                const constrainedPower = Math.max(0, Math.min(100, powerValue));
+                this.addControlPoint(this.activeControl, timeValue, constrainedPower / 100);
+              }
+            }
+            
+            this.lastClickTime = 0;
+          } else {
+            // Single click: check if clicking on a point to remove it
+            if (activeElements.length > 0) {
+              const element = activeElements[0];
+              const datasetIndex = element.datasetIndex;
+              const controlName = datasetIndex === 0 ? 'heater' : datasetIndex === 1 ? 'fan' : 'drum';
+              
+              if (controlName === this.activeControl) {
+                this.removeControlPoint(controlName, element.index);
+              }
+            }
+            
+            // Update click tracking
+            this.lastClickTime = currentTime;
+            this.lastClickX = clickX;
+            this.lastClickY = clickY;
+          }
+        }
+      }
+    });
+    
+    // Set up control selector buttons
+    this.setupControlSelector();
+    
+    // Update visuals to show active control
+    this.updateControlVisuals();
+  }
+  
+  /**
+   * Set up control selector buttons
+   */
+  private setupControlSelector(): void {
+    const buttons = document.querySelectorAll('.control-selector-btn');
+    
+    buttons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        const btn = e.target as HTMLButtonElement;
+        const control = btn.getAttribute('data-control') as 'heater' | 'fan' | 'drum';
+        
+        if (!control) return;
+        
+        // Update active control
+        this.activeControl = control;
+        
+        // Update button states
+        buttons.forEach(b => {
+          b.classList.remove('active');
+          const btnElement = b as HTMLButtonElement;
+          const btnControl = btnElement.getAttribute('data-control');
+          if (btnControl === 'heater') {
+            btnElement.style.background = 'transparent';
+            btnElement.style.color = '#e74c3c';
+          } else if (btnControl === 'fan') {
+            btnElement.style.background = 'transparent';
+            btnElement.style.color = '#3498db';
+          } else if (btnControl === 'drum') {
+            btnElement.style.background = 'transparent';
+            btnElement.style.color = '#9b59b6';
+          }
+        });
+        
+        btn.classList.add('active');
+        if (control === 'heater') {
+          btn.style.background = '#e74c3c';
+          btn.style.color = 'white';
+        } else if (control === 'fan') {
+          btn.style.background = '#3498db';
+          btn.style.color = 'white';
+        } else if (control === 'drum') {
+          btn.style.background = '#9b59b6';
+          btn.style.color = 'white';
+        }
+        
+        // Update visual appearance
+        this.updateControlVisuals();
+      });
+    });
+  }
+  
+  /**
+   * Update the visual appearance of control datasets
+   */
+  private updateControlVisuals(): void {
+    if (!this.controlChart || !this.controlChart.data.datasets || this.controlChart.data.datasets.length < 3) return;
+    
+    const heaterDataset = this.controlChart.data.datasets[0];
+    const fanDataset = this.controlChart.data.datasets[1];
+    const drumDataset = this.controlChart.data.datasets[2];
+    
+    // Set all to inactive state first
+    heaterDataset.pointRadius = 5;
+    heaterDataset.pointHoverRadius = 7;
+    heaterDataset.borderWidth = 1.5;
+    heaterDataset.pointBackgroundColor = 'rgba(231, 76, 60, 0.5)';
+    heaterDataset.borderColor = 'rgba(231, 76, 60, 0.5)';
+    
+    fanDataset.pointRadius = 5;
+    fanDataset.pointHoverRadius = 7;
+    fanDataset.borderWidth = 1.5;
+    fanDataset.pointBackgroundColor = 'rgba(52, 152, 219, 0.5)';
+    fanDataset.borderColor = 'rgba(52, 152, 219, 0.5)';
+    
+    drumDataset.pointRadius = 5;
+    drumDataset.pointHoverRadius = 7;
+    drumDataset.borderWidth = 1.5;
+    drumDataset.pointBackgroundColor = 'rgba(155, 89, 182, 0.5)';
+    drumDataset.borderColor = 'rgba(155, 89, 182, 0.5)';
+    
+    // Make the active control prominent
+    if (this.activeControl === 'heater') {
+      heaterDataset.pointRadius = 8;
+      heaterDataset.pointHoverRadius = 10;
+      heaterDataset.borderWidth = 2;
+      heaterDataset.pointBackgroundColor = '#e74c3c';
+      heaterDataset.borderColor = '#e74c3c';
+    } else if (this.activeControl === 'fan') {
+      fanDataset.pointRadius = 8;
+      fanDataset.pointHoverRadius = 10;
+      fanDataset.borderWidth = 2;
+      fanDataset.pointBackgroundColor = '#3498db';
+      fanDataset.borderColor = '#3498db';
+    } else if (this.activeControl === 'drum') {
+      drumDataset.pointRadius = 8;
+      drumDataset.pointHoverRadius = 10;
+      drumDataset.borderWidth = 2;
+      drumDataset.pointBackgroundColor = '#9b59b6';
+      drumDataset.borderColor = '#9b59b6';
+    }
+    
+    this.controlChart.update();
+  }
+  
+  /**
+   * Add a new control point
+   */
+  private addControlPoint(input: 'heater' | 'fan' | 'drum', time: number, value: number): void {
+    const points = this.config[`${input}Profile`] as { time: number; value: number }[];
+    
+    // Find insertion point
+    let insertIndex = points.findIndex(p => p.time > time);
+    if (insertIndex === -1) insertIndex = points.length;
+    
+    // Insert new point
+    points.splice(insertIndex, 0, { time, value });
+    
+    // Update chart
+    const datasetIndex = input === 'heater' ? 0 : input === 'fan' ? 1 : 2;
+    this.controlChart.data.datasets[datasetIndex].data = points.map(p => ({ x: p.time, y: p.value * 100 }));
+    this.controlChart.update();
+    
+    // Automatically simulate after adding a point
+    this.simulateProfile();
+  }
+  
+  /**
+   * Remove a control point
+   */
+  private removeControlPoint(controlInput: 'heater' | 'fan' | 'drum', pointIndex: number): void {
+    const points = this.config[`${controlInput}Profile`] as { time: number; value: number }[];
+    
+    // Don't allow removing first or last point
+    if (pointIndex === 0 || pointIndex === points.length - 1) {
+      alert('Cannot remove first or last control point');
+      return;
+    }
+    
+    // Remove the point
+    points.splice(pointIndex, 1);
+    
+    // Update chart
+    const datasetIndex = controlInput === 'heater' ? 0 : controlInput === 'fan' ? 1 : 2;
+    this.controlChart.data.datasets[datasetIndex].data = points.map(p => ({ x: p.time, y: p.value * 100 }));
+    this.controlChart.update();
+    
+    // Automatically simulate after removing a point
+    this.simulateProfile();
+  }
+  
+  /**
+   * Snap a value (0-1) to the nearest Artisan increment (5%)
+   */
+  private snapToArtisanIncrement(value: number): number {
+    const increment = 0.05;
+    return Math.round(value / increment) * increment;
   }
 }

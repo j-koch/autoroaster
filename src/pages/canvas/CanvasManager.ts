@@ -923,6 +923,7 @@ export class CanvasManager {
       pointBackgroundColor,
       fill: style.fill,
       tension: 0.1,
+      stepped: style.stepped || false,  // Support stepped line mode for piecewise constant data
       yAxisID: series.yAxisID || 'y',
       // Store original properties for highlighting adjustments
       // These preserve the base color in rgba format so we can adjust opacity dynamically

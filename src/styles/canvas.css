@@ -304,7 +304,7 @@ body {
 .btn-clear-all {
     width: 100%;
     padding: 10px;
-    background: #dc3545;
+    background: #6c757d;
     color: white;
     border: none;
     border-radius: 6px;
@@ -319,9 +319,9 @@ body {
 }
 
 .btn-clear-all:hover {
-    background: #c82333;
+    background: #5a6268;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
 }
 
 .btn-clear-all:active {

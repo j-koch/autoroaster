@@ -143,12 +143,12 @@ async function handleSignIn(e: Event): Promise<void> {
             throw error;
         }
         
-        // Sign in successful - redirect to dashboard
+        // Sign in successful - redirect to canvas
         showMessage('Sign in successful! Redirecting...', 'success');
         
         // Redirect after a short delay
         setTimeout(() => {
-            window.location.href = '/dashboard.html';
+            window.location.href = '/canvas.html';
         }, 1000);
         
     } catch (error: any) {
@@ -194,7 +194,7 @@ async function handleSignUp(e: Event): Promise<void> {
             email: email,
             password: password,
             options: {
-                emailRedirectTo: `${window.location.origin}/dashboard.html`
+                emailRedirectTo: `${window.location.origin}/canvas.html`
             }
         });
         
@@ -207,10 +207,10 @@ async function handleSignUp(e: Event): Promise<void> {
             showMessage('Sign up successful! Please check your email to confirm your account.', 'info');
             setButtonLoading(signupButton, false);
         } else {
-            // Auto sign-in successful - redirect to dashboard
+            // Auto sign-in successful - redirect to canvas
             showMessage('Account created successfully! Redirecting...', 'success');
             setTimeout(() => {
-                window.location.href = '/dashboard.html';
+                window.location.href = '/canvas.html';
             }, 1000);
         }
         
@@ -227,15 +227,15 @@ async function handleSignUp(e: Event): Promise<void> {
 
 /**
  * Check if user is already signed in
- * If yes, redirect to dashboard
+ * If yes, redirect to canvas
  */
 async function checkExistingSession(): Promise<void> {
     try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-            // User is already signed in - redirect to dashboard
-            window.location.href = '/dashboard.html';
+            // User is already signed in - redirect to canvas
+            window.location.href = '/canvas.html';
         }
     } catch (error) {
         console.error('Session check error:', error);

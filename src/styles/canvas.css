@@ -1,0 +1,897 @@
+/* Canvas Page Styles - Layer-based Visualization Interface */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    overflow: hidden;
+}
+
+/* ========================================
+   NAVIGATION BAR (Shared with Dashboard)
+   ======================================== */
+.navbar {
+    background-color: #8B4513;
+    color: white;
+    padding: 15px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+}
+
+.navbar-brand {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.navbar-user {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.user-email {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.btn-signout {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.btn-signout:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================
+   MAIN LAYOUT WITH SIDEBAR
+   ======================================== */
+.main-layout {
+    display: flex;
+    height: calc(100vh - 60px);
+}
+
+.sidebar {
+    width: 200px;
+    background-color: #2c2c2c;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    transition: width 0.3s ease, opacity 0.3s ease;
+    overflow: hidden;
+}
+
+.sidebar.collapsed {
+    width: 0;
+    opacity: 0;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    color: rgba(255, 255, 255, 0.7);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.sidebar-link:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.sidebar-link.active {
+    background-color: rgba(139, 69, 19, 0.3);
+    color: white;
+    border-left-color: #8B4513;
+}
+
+.sidebar-icon {
+    font-size: 20px;
+    margin-right: 12px;
+    min-width: 24px;
+    text-align: center;
+}
+
+.sidebar-text {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+/* ========================================
+   MESSAGE DISPLAY
+   ======================================== */
+.message {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 15px 25px;
+    border-radius: 6px;
+    font-size: 14px;
+    display: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-width: 600px;
+}
+
+.message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.message.info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* ========================================
+   CANVAS CONTAINER
+   ======================================== */
+.canvas-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ========================================
+   CANVAS LAYOUT (3-column: Layers, Plot, Properties)
+   ======================================== */
+.canvas-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    gap: 0;
+    height: 100%;
+    overflow: hidden;
+    transition: grid-template-columns 0.3s ease;
+    position: relative;
+}
+
+/* Collapsed states */
+.canvas-layout.layers-collapsed {
+    grid-template-columns: 0 1fr 320px;
+}
+
+.canvas-layout.properties-collapsed {
+    grid-template-columns: 280px 1fr 0;
+}
+
+.canvas-layout.both-collapsed {
+    grid-template-columns: 0 1fr 0;
+}
+
+/* ========================================
+   LAYER PANEL (Left Column)
+   ======================================== */
+.layer-panel {
+    background-color: #f8f9fa;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #ddd;
+    overflow: hidden;
+}
+
+.layer-panel-header {
+    padding: 20px;
+    border-bottom: 2px solid #ddd;
+}
+
+.layer-panel-header h2 {
+    font-size: 20px;
+    color: #8B4513;
+    margin: 0;
+}
+
+.btn-toggle-panel {
+    background: rgba(139, 69, 19, 0.2);
+    border: 1px solid rgba(139, 69, 19, 0.3);
+    color: #8B4513;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-toggle-panel:hover {
+    background: rgba(139, 69, 19, 0.3);
+    transform: scale(1.1);
+}
+
+/* When collapsed, keep in grid flow but hide via width */
+.layer-panel.collapsed,
+.properties-panel.collapsed {
+    min-width: 0;
+    width: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Floating toggle buttons for collapsed panels */
+.floating-toggle-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: linear-gradient(135deg, #8B4513, #A0522D);
+    color: white;
+    border: none;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 8px;
+    font-size: 18px;
+    cursor: pointer;
+    z-index: 100;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.floating-toggle-left {
+    left: 0;
+}
+
+.floating-toggle-btn:hover {
+    background: linear-gradient(135deg, #A0522D, #CD853F);
+    padding-right: 12px;
+    box-shadow: 3px 0 12px rgba(139, 69, 19, 0.5);
+}
+
+.btn-add-layer {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, #8B4513, #A0522D);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-add-layer:hover {
+    background: linear-gradient(135deg, #A0522D, #CD853F);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 69, 19, 0.4);
+}
+
+.btn-add-layer span {
+    font-size: 18px;
+}
+
+/* Layer List */
+.layer-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.layer-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.layer-list::-webkit-scrollbar-track {
+    background: #eee;
+}
+
+.layer-list::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+.layer-list::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
+
+.empty-layer-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+}
+
+.empty-icon {
+    font-size: 64px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.empty-layer-state p {
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.empty-layer-state .hint {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Layer Items */
+.layer-item {
+    background: white;
+    border-left: 4px solid #8B4513;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.layer-item:hover {
+    background: #fff;
+    transform: translateX(2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.layer-item.selected {
+    background: #fff;
+    border-left-width: 6px;
+    box-shadow: 0 2px 8px rgba(139, 69, 19, 0.3);
+}
+
+.layer-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.layer-visibility {
+    width: 24px;
+    height: 24px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.layer-visibility:hover {
+    opacity: 1;
+}
+
+.layer-visibility.hidden {
+    opacity: 0.3;
+}
+
+.layer-color-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.layer-icon {
+    font-size: 16px;
+}
+
+.layer-name {
+    flex: 1;
+    font-weight: bold;
+    font-size: 14px;
+    color: #333;
+}
+
+.layer-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.layer-action-btn {
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 3px;
+    transition: all 0.2s;
+}
+
+.layer-action-btn:hover {
+    background: rgba(139, 69, 19, 0.1);
+    color: #8B4513;
+}
+
+.layer-info {
+    font-size: 11px;
+    color: #999;
+    padding-left: 34px;
+}
+
+.layer-type-selector {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    z-index: 200;
+    min-width: 400px;
+    max-width: 500px;
+}
+
+.layer-type-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 2px solid #eee;
+}
+
+.layer-type-header h3 {
+    font-size: 18px;
+    color: #333;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.layer-type-options {
+    padding: 20px;
+    display: grid;
+    gap: 12px;
+}
+
+.layer-type-option {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    grid-template-rows: auto auto;
+    gap: 8px 12px;
+    padding: 15px;
+    background: #f8f9fa;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+}
+
+.layer-type-option:hover {
+    background: #fff;
+    border-color: #8B4513;
+    box-shadow: 0 4px 12px rgba(139, 69, 19, 0.15);
+    transform: translateY(-2px);
+}
+
+.option-icon {
+    grid-row: 1 / 3;
+    font-size: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.option-title {
+    font-weight: bold;
+    color: #333;
+    font-size: 15px;
+}
+
+.option-desc {
+    font-size: 12px;
+    color: #666;
+    grid-column: 2;
+}
+
+/* ========================================
+   PLOT CONTAINER (Center Column)
+   ======================================== */
+.plot-container {
+    background: white;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.plot-header {
+    padding: 20px 30px;
+    border-bottom: 2px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.plot-title {
+    font-size: 24px;
+    color: #333;
+    font-weight: bold;
+}
+
+.plot-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-icon {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.btn-icon:hover {
+    background: #e9ecef;
+    border-color: #8B4513;
+    transform: translateY(-1px);
+}
+
+.chart-wrapper {
+    flex: 1;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-wrapper canvas {
+    max-height: 100%;
+}
+
+.chart-empty-state {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #999;
+}
+
+.empty-canvas-icon {
+    font-size: 80px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+}
+
+.chart-empty-state h2 {
+    font-size: 24px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.chart-empty-state p {
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #8B4513, #A0522D);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #A0522D, #CD853F);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3);
+}
+
+/* ========================================
+   PROPERTIES PANEL (Right Column)
+   ======================================== */
+.properties-panel {
+    background: #f8f9fa;
+    border-left: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.properties-header {
+    padding: 20px;
+    border-bottom: 2px solid #ddd;
+}
+
+.properties-header h2 {
+    font-size: 18px;
+    color: #333;
+}
+
+.properties-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.properties-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.properties-content::-webkit-scrollbar-track {
+    background: #eee;
+}
+
+.properties-content::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 4px;
+}
+
+.properties-content::-webkit-scrollbar-thumb:hover {
+    background: #aaa;
+}
+
+.empty-properties-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+/* Property Sections (Model Card Style) */
+.property-section {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.property-section h3 {
+    font-size: 14px;
+    color: #8B4513;
+    margin-bottom: 12px;
+    font-weight: bold;
+    border-bottom: 2px solid #8B4513;
+    padding-bottom: 6px;
+}
+
+.property-group {
+    margin-bottom: 15px;
+}
+
+.property-group:last-child {
+    margin-bottom: 0;
+}
+
+.property-label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.property-control {
+    width: 100%;
+}
+
+.property-control input[type="color"] {
+    width: 100%;
+    height: 36px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.property-control input[type="range"] {
+    width: 100%;
+}
+
+.property-control input[type="number"],
+.property-control input[type="text"],
+.property-control select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.property-control input:focus,
+.property-control select:focus {
+    outline: none;
+    border-color: #8B4513;
+}
+
+.property-value-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.property-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+/* Data Selection UI */
+.data-selection {
+    background: white;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    border: 1px solid #e0e0e0;
+}
+
+.data-selection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.data-selection-header h4 {
+    font-size: 13px;
+    color: #333;
+    font-weight: bold;
+}
+
+.data-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.data-item input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.data-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Loading spinner for properties */
+.properties-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(139, 69, 19, 0.2);
+    border-radius: 50%;
+    border-top-color: #8B4513;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+@media (max-width: 1400px) {
+    .canvas-layout {
+        grid-template-columns: 260px 1fr 280px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .canvas-layout {
+        grid-template-columns: 240px 1fr 260px;
+    }
+    
+    .sidebar {
+        width: 180px;
+    }
+}
+
+@media (max-width: 900px) {
+    .main-layout {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: auto;
+    }
+    
+    .sidebar-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 0;
+    }
+    
+    .sidebar-link {
+        flex-direction: column;
+        padding: 12px;
+        min-width: 80px;
+        border-left: none;
+        border-bottom: 4px solid transparent;
+    }
+    
+    .sidebar-link.active {
+        border-left: none;
+        border-bottom-color: #8B4513;
+    }
+    
+    .sidebar-icon {
+        margin-right: 0;
+        margin-bottom: 4px;
+    }
+    
+    .canvas-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr auto;
+    }
+    
+    .layer-panel,
+    .properties-panel {
+        max-height: 300px;
+    }
+}

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas - AutoRoaster</title>
+    <link rel="stylesheet" href="/src/styles/canvas.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-brand">AutoRoaster Canvas</div>
+        <div class="navbar-user">
+            <span class="user-email" id="user-email">Loading...</span>
+            <button class="btn-signout" id="signout-btn">Sign Out</button>
+        </div>
+    </nav>
+
+    <!-- Main Layout: Sidebar + Canvas -->
+    <div class="main-layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <a href="/dashboard.html" class="sidebar-link">
+                    <span class="sidebar-icon">📊</span>
+                    <span class="sidebar-text">Dashboard</span>
+                </a>
+                <a href="/canvas.html" class="sidebar-link active">
+                    <span class="sidebar-icon">🎨</span>
+                    <span class="sidebar-text">Canvas</span>
+                </a>
+                <a href="/recipes.html" class="sidebar-link">
+                    <span class="sidebar-icon">📝</span>
+                    <span class="sidebar-text">Recipes</span>
+                </a>
+                <a href="/training.html" class="sidebar-link">
+                    <span class="sidebar-icon">🧠</span>
+                    <span class="sidebar-text">Training</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Canvas Container -->
+        <main class="canvas-container">
+            <!-- Message Display -->
+            <div class="message" id="message"></div>
+
+            <!-- Canvas Layout: Layer Panel + Plot + Controls -->
+            <div class="canvas-layout" id="canvas-layout">
+                <!-- Floating toggle button for collapsed layer panel -->
+                <button class="floating-toggle-btn floating-toggle-left" id="floating-toggle-layers" style="display: none;" title="Show layers panel">
+                    ▶
+                </button>
+                
+                <!-- Left: Layer Tree Panel -->
+                <aside class="layer-panel" id="layer-panel">
+                    <div class="layer-panel-header">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h2>Layers</h2>
+                            <button class="btn-toggle-panel" id="toggle-layers-btn" title="Hide layers panel">
+                                ◀
+                            </button>
+                        </div>
+                        <button class="btn-add-layer" id="add-layer-btn" title="Add a new layer">
+                            <span>+</span> Add Layer
+                        </button>
+                    </div>
+
+                    <!-- Layer List -->
+                    <div class="layer-list" id="layer-list">
+                        <div class="empty-layer-state">
+                            <div class="empty-icon">📋</div>
+                            <p>No layers yet</p>
+                            <p class="hint">Click "Add Layer" to start</p>
+                        </div>
+                    </div>
+
+                    <!-- Add Layer Modal (hidden by default) -->
+                    <div class="layer-type-selector" id="layer-type-selector" style="display: none;">
+                        <div class="layer-type-header">
+                            <h3>Select Layer Type</h3>
+                            <button class="close-btn" id="close-layer-selector">×</button>
+                        </div>
+                        <div class="layer-type-options">
+                            <button class="layer-type-option" data-type="historical">
+                                <span class="option-icon">📈</span>
+                                <span class="option-title">Historical Roasts</span>
+                                <span class="option-desc">Visualize past roast data</span>
+                            </button>
+                            <button class="layer-type-option" data-type="recipe">
+                                <span class="option-icon">📝</span>
+                                <span class="option-title">Recipe</span>
+                                <span class="option-desc">Display saved recipes</span>
+                            </button>
+                            <button class="layer-type-option" data-type="simulator">
+                                <span class="option-icon">🔬</span>
+                                <span class="option-title">Simulator</span>
+                                <span class="option-desc">Interactive roast simulation</span>
+                            </button>
+                            <button class="layer-type-option" data-type="generator">
+                                <span class="option-icon">✨</span>
+                                <span class="option-title">Recipe Generator</span>
+                                <span class="option-desc">Create new recipes</span>
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Center: Main Plot Canvas -->
+                <div class="plot-container">
+                    <div class="plot-header">
+                        <h1 class="plot-title">Roast Profile Canvas</h1>
+                        <div class="plot-controls">
+                            <button class="btn-icon" id="reset-zoom-btn" title="Reset zoom">
+                                <span>🔍</span>
+                            </button>
+                            <button class="btn-icon" id="export-btn" title="Export as image">
+                                <span>💾</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Main Chart Canvas (Chart.js) -->
+                    <div class="chart-wrapper">
+                        <canvas id="main-canvas-chart"></canvas>
+                    </div>
+
+                    <!-- Empty State (shown when no layers) -->
+                    <div class="chart-empty-state" id="chart-empty-state">
+                        <div class="empty-canvas-icon">🎨</div>
+                        <h2>Your Canvas is Empty</h2>
+                        <p>Add layers to start visualizing roast data</p>
+                        <button class="btn-primary" id="add-first-layer-btn">
+                            Add Your First Layer
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Right: Layer Properties Panel (context-sensitive) -->
+                <aside class="properties-panel" id="properties-panel">
+                    <div class="properties-header">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h2>Properties</h2>
+                            <button class="btn-toggle-panel" id="toggle-properties-btn" title="Hide properties panel">
+                                ▶
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="properties-content" id="properties-content">
+                        <div class="empty-properties-state">
+                            <div class="empty-icon">⚙️</div>
+                            <p>Select a layer to view properties</p>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <!-- ONNX Runtime (for simulator/generator layers) -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    
+    <!-- Load Canvas App (Vite will bundle this) -->
+    <script type="module" src="/src/pages/canvas/canvas.ts"></script>
+</body>
+</html>

@@ -39,10 +39,15 @@ export class CanvasManager {
   private user: User;
   private layers: Map<string, AnyLayerConfig> = new Map();
   private selectedLayerId: string | null = null;
+  private highlightedLayerId: string | null = null; // Track which layer is currently highlighted
   private chart: any = null;
   
   // Layer handler instances (for rendering properties and fetching data)
   private layerHandlers: Map<string, HistoricalLayer | RecipeLayer | GeneratorLayer | SimulatorLayer> = new Map();
+  
+  // Map dataset labels to layer IDs for chart hover events
+  // Key: dataset label, Value: layer ID
+  private datasetToLayerMap: Map<string, string> = new Map();
   
   // DOM elements
   private readonly layerListEl: HTMLElement;
@@ -78,7 +83,7 @@ export class CanvasManager {
     this.initializeChart();
     
     // Load saved canvas state from localStorage (if any)
-    this.loadCanvasState();
+    await this.loadCanvasState();
     
     console.log('✅ CanvasManager initialized');
   }
@@ -106,16 +111,11 @@ export class CanvasManager {
         },
         plugins: {
           legend: {
-            display: true,
-            position: 'top',
-            labels: {
-              usePointStyle: true,
-              padding: 15
-            }
+            display: false  // Disabled - layer cards provide identification, highlighting shows relationships
           },
           tooltip: {
             mode: 'nearest',
-            intersect: false,
+            intersect: true,  // Only show tooltip when cursor is actually over a trace
             callbacks: {
               label: (context: any) => {
                 const label = context.dataset.label || '';
@@ -177,8 +177,7 @@ export class CanvasManager {
         },
         interaction: {
           mode: 'nearest',
-          axis: 'x',
-          intersect: false
+          intersect: true  // Only interact when cursor is directly over plot elements
         }
       }
     });
@@ -317,7 +316,8 @@ export class CanvasManager {
           drumProfile: [
             { time: 0, value: 0.6 },
             { time: 600, value: 0.6 }
-          ]
+          ],
+          color
         };
     }
   }
@@ -326,7 +326,7 @@ export class CanvasManager {
    * Remove a layer from the canvas
    * @param layerId - ID of layer to remove
    */
-  removeLayer(layerId: string): void {
+  async removeLayer(layerId: string): Promise<void> {
     this.layers.delete(layerId);
     
     // Deselect if this was the selected layer
@@ -336,7 +336,7 @@ export class CanvasManager {
     
     // Update UI
     this.updateLayerList();
-    this.updateChart();
+    await this.updateChart();
     this.updatePropertiesPanel();
     
     // Save state
@@ -344,10 +344,39 @@ export class CanvasManager {
   }
   
   /**
+   * Clear all layers from the canvas
+   */
+  async clearAllLayers(): Promise<void> {
+    if (this.layers.size === 0) {
+      return; // Nothing to clear
+    }
+    
+    // Confirm before clearing
+    if (!confirm(`Are you sure you want to remove all ${this.layers.size} layer(s)?`)) {
+      return;
+    }
+    
+    // Clear all layers
+    this.layers.clear();
+    this.layerHandlers.clear();
+    this.selectedLayerId = null;
+    
+    // Update UI
+    this.updateLayerList();
+    await this.updateChart();
+    this.updatePropertiesPanel();
+    
+    // Save state
+    this.saveCanvasState();
+    
+    console.log('✓ All layers cleared');
+  }
+  
+  /**
    * Toggle layer visibility
    * @param layerId - ID of layer to toggle
    */
-  toggleLayerVisibility(layerId: string): void {
+  async toggleLayerVisibility(layerId: string): Promise<void> {
     const layer = this.layers.get(layerId);
     if (!layer) return;
     
@@ -355,18 +384,56 @@ export class CanvasManager {
     
     // Update UI
     this.updateLayerList();
-    this.updateChart();
+    await this.updateChart();
     
     // Save state
     this.saveCanvasState();
   }
   
   /**
+   * Highlight a layer (dim all others, make this one bold)
+   * @param layerId - ID of layer to highlight, or null to clear highlight
+   */
+  private highlightLayer(layerId: string | null): void {
+    // Only update if highlight state actually changes
+    if (this.highlightedLayerId === layerId) return;
+    
+    this.highlightedLayerId = layerId;
+    
+    // Update chart rendering with new highlight state
+    this.updateChartHighlight();
+  }
+  
+  /**
+   * Clear layer highlighting (restore all layers to normal state)
+   */
+  private clearHighlight(): void {
+    this.highlightLayer(null);
+  }
+  
+  /**
+   * Deselect the currently selected layer
+   * Clears selection and highlighting
+   */
+  deselectLayer(): void {
+    this.selectedLayerId = null;
+    this.clearHighlight();
+    
+    // Update UI
+    this.updateLayerList();
+    this.updatePropertiesPanel();
+  }
+  
+  /**
    * Select a layer for editing in the properties panel
+   * Also highlights the layer when selected
    * @param layerId - ID of layer to select
    */
   selectLayer(layerId: string): void {
     this.selectedLayerId = layerId;
+    
+    // Also highlight the selected layer
+    this.highlightLayer(layerId);
     
     // Show properties panel when a layer is selected (if it's currently collapsed)
     const propertiesPanel = document.getElementById('properties-panel');
@@ -447,12 +514,11 @@ export class CanvasManager {
     const icon = icons[layer.type];
     
     // Get color for the layer (if available)
-    // Different layer types store color in different places
+    // All layer types now store color in the same way
     let layerColor = '#999999'; // Default gray color
-    if (layer.type === 'historical' && 'color' in layer) {
-      layerColor = layer.color || '#e74c3c';
+    if ('color' in layer && layer.color) {
+      layerColor = layer.color;
     }
-    // Add other layer type color extraction as needed
     
     div.innerHTML = `
       <div class="layer-header">
@@ -476,6 +542,23 @@ export class CanvasManager {
       // Don't select if clicking on buttons
       if ((e.target as HTMLElement).tagName === 'BUTTON') return;
       this.selectLayer(layerId);
+    });
+    
+    // Add hover handlers for highlighting
+    div.addEventListener('mouseenter', () => {
+      // Highlight this layer when hovering over the card
+      this.highlightLayer(layerId);
+    });
+    
+    div.addEventListener('mouseleave', () => {
+      // When leaving the layer card:
+      // - If a layer is selected, keep it highlighted
+      // - Otherwise, clear the highlight
+      if (this.selectedLayerId) {
+        this.highlightLayer(this.selectedLayerId);
+      } else {
+        this.clearHighlight();
+      }
     });
     
     // Add handlers for action buttons
@@ -554,7 +637,8 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // When config changes, update chart and save state
+          // When config changes, update layer list, chart and save state
+          this.updateLayerList();
           this.updateChart();
           this.saveCanvasState();
         }
@@ -576,7 +660,8 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // When config changes, update chart and save state
+          // When config changes, update layer list, chart and save state
+          this.updateLayerList();
           this.updateChart();
           this.saveCanvasState();
         }
@@ -598,7 +683,8 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // When config changes, update chart and save state
+          // When config changes, update layer list, chart and save state
+          this.updateLayerList();
           this.updateChart();
           this.saveCanvasState();
         }
@@ -620,7 +706,8 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // When config changes, update chart and save state
+          // When config changes, update layer list, chart and save state
+          this.updateLayerList();
           this.updateChart();
           this.saveCanvasState();
         }
@@ -647,6 +734,9 @@ export class CanvasManager {
       this.chartCanvasEl.style.display = 'block';
     }
     
+    // Clear dataset-to-layer mapping
+    this.datasetToLayerMap.clear();
+    
     // Collect datasets from all visible layers
     const datasets: any[] = [];
     
@@ -654,19 +744,113 @@ export class CanvasManager {
       if (!layer.visible) continue;
       
       // Get data series for this layer
-      // For now, using placeholder data - full implementation would
-      // fetch actual data from each layer type
       const dataSeries = await this.getLayerDataSeries(layer);
       
       // Convert data series to Chart.js datasets
       for (const series of dataSeries) {
-        datasets.push(this.createChartDataset(series, layer.opacity));
+        const dataset = this.createChartDataset(series, layer.opacity, layer.id);
+        datasets.push(dataset);
+        
+        // Map dataset label to layer ID for hover detection
+        // Use the dataset's actual label (which may have been modified to be unique)
+        this.datasetToLayerMap.set(dataset.label, layer.id);
       }
     }
     
     // Update chart
     this.chart.data.datasets = datasets;
     this.chart.update('none'); // 'none' = no animation
+    
+    // Set up chart hover handlers for highlighting
+    this.setupChartHoverHandlers();
+  }
+  
+  /**
+   * Update chart highlighting without re-fetching data
+   * This is more efficient than updateChart() when only the highlight state changes
+   */
+  private updateChartHighlight(): void {
+    if (!this.chart || !this.chart.data.datasets) return;
+    
+    // Update each dataset's visual properties based on highlight state
+    for (const dataset of this.chart.data.datasets) {
+      // Get the layer ID for this dataset from its label
+      const layerId = this.datasetToLayerMap.get(dataset.label);
+      if (!layerId) continue;
+      
+      const layer = this.layers.get(layerId);
+      if (!layer) continue;
+      
+      // Determine if this dataset should be highlighted or dimmed
+      const isHighlighted = !this.highlightedLayerId || this.highlightedLayerId === layerId;
+      
+      // Apply highlighting effects
+      // When highlighted: use full opacity and increase line width
+      // When dimmed: use reduced opacity (20%) and normal line width
+      const effectiveOpacity = isHighlighted ? layer.opacity : layer.opacity * 0.2;
+      const effectiveLineWidth = isHighlighted ? dataset.originalLineWidth * 1.5 : dataset.originalLineWidth;
+      
+      // Update dataset visual properties
+      // Note: We need to preserve the original color and just modify alpha
+      if (dataset.originalBorderColor) {
+        dataset.borderColor = this.adjustColorOpacity(dataset.originalBorderColor, effectiveOpacity);
+      }
+      if (dataset.originalBackgroundColor) {
+        dataset.backgroundColor = this.adjustColorOpacity(dataset.originalBackgroundColor, effectiveOpacity);
+      }
+      if (dataset.originalPointBackgroundColor) {
+        dataset.pointBackgroundColor = this.adjustColorOpacity(dataset.originalPointBackgroundColor, effectiveOpacity);
+      }
+      
+      dataset.borderWidth = effectiveLineWidth;
+    }
+    
+    // Update the chart without animation
+    this.chart.update('none');
+  }
+  
+  /**
+   * Set up chart hover handlers to highlight layers on mouseover
+   */
+  private setupChartHoverHandlers(): void {
+    if (!this.chart) return;
+    
+    const canvas = this.chartCanvasEl;
+    
+    // Handle mouse move over chart to detect dataset hover
+    canvas.addEventListener('mousemove', (e: MouseEvent) => {
+      const points = this.chart.getElementsAtEventForMode(
+        e,
+        'nearest',
+        { intersect: true },  // Only highlight when cursor is directly over a trace
+        false
+      );
+      
+      if (points && points.length > 0) {
+        // Get the dataset at the hover point
+        const datasetIndex = points[0].datasetIndex;
+        const dataset = this.chart.data.datasets[datasetIndex];
+        
+        if (dataset && dataset.label) {
+          // Find the layer ID for this dataset
+          const layerId = this.datasetToLayerMap.get(dataset.label);
+          if (layerId) {
+            this.highlightLayer(layerId);
+          }
+        }
+      }
+    });
+    
+    // Clear highlight when mouse leaves the chart
+    canvas.addEventListener('mouseleave', () => {
+      // Only clear if we're not in the properties panel (keep selected layer highlighted)
+      if (!this.selectedLayerId) {
+        this.clearHighlight();
+      } else {
+        // Keep selected layer highlighted
+        this.highlightLayer(this.selectedLayerId);
+      }
+    });
   }
   
   /**
@@ -707,26 +891,72 @@ export class CanvasManager {
   /**
    * Convert a data series to a Chart.js dataset
    * @param series - Data series
-   * @param opacity - Layer opacity
+   * @param opacity - Layer opacity (0-1)
+   * @param layerId - Layer ID (for tracking which layer owns this dataset)
+   * 
+   * The opacity parameter controls the transparency of all visual elements:
+   * - Line color (borderColor)
+   * - Point color (pointBackgroundColor)
+   * - Fill area color (backgroundColor)
+   * 
+   * We store original styling properties for dynamic highlighting adjustments
    */
-  private createChartDataset(series: DataSeries, opacity: number): any {
+  private createChartDataset(series: DataSeries, opacity: number, layerId: string): any {
     const style = series.style;
+    
+    // Create the dataset with original colors stored for later adjustment
+    const borderColor = this.hexToRgba(style.color, opacity);
+    const backgroundColor = style.fill 
+      ? this.hexToRgba(style.color, style.fillOpacity * opacity)
+      : 'transparent';
+    const pointBackgroundColor = this.hexToRgba(style.color, opacity);
     
     return {
       label: series.label,
       data: series.data,
-      borderColor: style.color,
-      backgroundColor: style.fill 
-        ? this.hexToRgba(style.color, style.fillOpacity * opacity)
-        : 'transparent',
+      // Current visual properties
+      borderColor,
+      backgroundColor,
       borderWidth: style.lineWidth,
       borderDash: style.lineDash,
       pointRadius: style.showPoints ? style.pointRadius : 0,
-      pointBackgroundColor: style.color,
+      pointBackgroundColor,
       fill: style.fill,
       tension: 0.1,
-      yAxisID: series.yAxisID || 'y'
+      yAxisID: series.yAxisID || 'y',
+      // Store original properties for highlighting adjustments
+      // These preserve the base color in rgba format so we can adjust opacity dynamically
+      originalBorderColor: borderColor,
+      originalBackgroundColor: backgroundColor,
+      originalPointBackgroundColor: pointBackgroundColor,
+      originalLineWidth: style.lineWidth,
+      layerId // Store layer ID for reference
     };
+  }
+  
+  /**
+   * Adjust the opacity of an rgba color string
+   * @param rgbaColor - Color in rgba format, e.g., "rgba(255, 0, 0, 0.8)"
+   * @param newAlpha - New alpha value (0-1)
+   * @returns New rgba color with adjusted alpha
+   */
+  private adjustColorOpacity(rgbaColor: string, newAlpha: number): string {
+    // Parse rgba color string
+    // Format: rgba(r, g, b, a) or rgb(r, g, b)
+    const match = rgbaColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    
+    if (!match) {
+      // If parsing fails, return the original color
+      console.warn('Failed to parse color:', rgbaColor);
+      return rgbaColor;
+    }
+    
+    const r = match[1];
+    const g = match[2];
+    const b = match[3];
+    
+    // Return new rgba with adjusted alpha
+    return `rgba(${r}, ${g}, ${b}, ${newAlpha})`;
   }
   
   /**
@@ -798,7 +1028,7 @@ export class CanvasManager {
   /**
    * Load canvas state from localStorage
    */
-  private loadCanvasState(): void {
+  private async loadCanvasState(): Promise<void> {
     try {
       const stateStr = localStorage.getItem('canvas-state');
       if (!stateStr) return;
@@ -810,9 +1040,24 @@ export class CanvasManager {
         this.layers.set(layer.id, layer);
       }
       
+      // Pre-initialize all layer handlers to ensure they're ready to provide data
+      // This is critical for layers restored from localStorage
+      for (const [layerId, layer] of this.layers) {
+        if (layer.type === 'historical') {
+          const histLayer = this.getOrCreateHistoricalLayer(layerId, layer as HistoricalLayerConfig);
+          // HistoricalLayer needs to load roasts list before it can provide data
+          await (histLayer as any).loadRoasts?.();
+        } else if (layer.type === 'recipe') {
+          const recipeLayer = this.getOrCreateRecipeLayer(layerId, layer as RecipeLayerConfig);
+          // RecipeLayer needs to load recipes list before it can provide data
+          await (recipeLayer as any).loadRecipes?.();
+        }
+        // Generator and Simulator layers don't need pre-initialization
+      }
+      
       // Update UI
       this.updateLayerList();
-      this.updateChart();
+      await this.updateChart(); // Wait for chart to fully update with data
       
       console.log(`✓ Restored ${this.layers.size} layers from saved state`);
     } catch (error) {

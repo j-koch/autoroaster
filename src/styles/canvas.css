@@ -72,14 +72,11 @@ body {
     color: white;
     flex-shrink: 0;
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
-    transition: width 0.3s ease, opacity 0.3s ease;
     overflow: hidden;
+    position: relative;
 }
 
-.sidebar.collapsed {
-    width: 0;
-    opacity: 0;
-}
+/* Navigation sidebar always stays visible - removed collapsed state */
 
 .sidebar-nav {
     display: flex;
@@ -243,9 +240,9 @@ body {
     pointer-events: none;
 }
 
-/* Floating toggle buttons for collapsed panels */
+/* Floating toggle button for collapsed layer panel - attached to navigation sidebar */
 .floating-toggle-btn {
-    position: absolute;
+    position: fixed;
     top: 50%;
     transform: translateY(-50%);
     background: linear-gradient(135deg, #8B4513, #A0522D);
@@ -261,7 +258,7 @@ body {
 }
 
 .floating-toggle-left {
-    left: 0;
+    left: 200px; /* Position at right edge of 200px navigation sidebar */
 }
 
 .floating-toggle-btn:hover {
@@ -295,6 +292,40 @@ body {
 
 .btn-add-layer span {
     font-size: 18px;
+}
+
+/* Layer Panel Footer */
+.layer-panel-footer {
+    padding: 15px 20px;
+    border-top: 2px solid #ddd;
+    background-color: #f8f9fa;
+}
+
+.btn-clear-all {
+    width: 100%;
+    padding: 10px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-clear-all:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+.btn-clear-all:active {
+    transform: translateY(0);
 }
 
 /* Layer List */
@@ -848,6 +879,11 @@ body {
     
     .sidebar {
         width: 180px;
+    }
+    
+    /* Adjust floating toggle button position for smaller sidebar */
+    .floating-toggle-left {
+        left: 180px;
     }
 }
 

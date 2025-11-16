@@ -33,6 +33,7 @@ const signoutBtn = document.getElementById('signout-btn') as HTMLButtonElement;
 // Layer controls
 const addLayerBtn = document.getElementById('add-layer-btn') as HTMLButtonElement;
 const addFirstLayerBtn = document.getElementById('add-first-layer-btn') as HTMLButtonElement;
+const clearAllLayersBtn = document.getElementById('clear-all-layers-btn') as HTMLButtonElement;
 const layerTypeSelector = document.getElementById('layer-type-selector') as HTMLDivElement;
 const closeLayerSelector = document.getElementById('close-layer-selector') as HTMLButtonElement;
 const layerTypeOptions = document.querySelectorAll('.layer-type-option');
@@ -163,7 +164,7 @@ async function handleLayerTypeSelection(layerType: LayerType): Promise<void> {
 
 /**
  * Toggle layers panel visibility
- * Also toggles the navigation sidebar for maximum plot area
+ * Navigation sidebar remains visible always
  */
 function toggleLayersPanel(): void {
     layersPanelVisible = !layersPanelVisible;
@@ -174,19 +175,11 @@ function toggleLayersPanel(): void {
         toggleLayersBtn.textContent = '◀';
         toggleLayersBtn.title = 'Hide layers panel';
         floatingToggleLayersBtn.style.display = 'none';
-        // Show navigation sidebar using class (smooth transition)
-        if (navigationSidebar) {
-            navigationSidebar.classList.remove('collapsed');
-        }
     } else {
         layerPanel.classList.add('collapsed');
         toggleLayersBtn.textContent = '▶';
         toggleLayersBtn.title = 'Show layers panel';
         floatingToggleLayersBtn.style.display = 'block';
-        // Hide navigation sidebar using class (smooth transition)
-        if (navigationSidebar) {
-            navigationSidebar.classList.add('collapsed');
-        }
     }
     
     // Update canvas layout classes
@@ -195,6 +188,7 @@ function toggleLayersPanel(): void {
 
 /**
  * Toggle properties panel visibility
+ * When closing the panel, also deselect the current layer
  */
 function togglePropertiesPanel(): void {
     propertiesPanelVisible = !propertiesPanelVisible;
@@ -208,6 +202,11 @@ function togglePropertiesPanel(): void {
         propertiesPanel.classList.add('collapsed');
         togglePropertiesBtn.textContent = '◀';
         togglePropertiesBtn.title = 'Show properties panel';
+        
+        // Deselect the current layer when closing the properties panel
+        if (canvasManager) {
+            canvasManager.deselectLayer();
+        }
     }
     
     // Update canvas layout classes
@@ -276,6 +275,13 @@ function setupEventListeners(): void {
     // Add layer buttons
     addLayerBtn.addEventListener('click', showLayerTypeSelector);
     addFirstLayerBtn.addEventListener('click', showLayerTypeSelector);
+    
+    // Clear all layers button
+    clearAllLayersBtn.addEventListener('click', () => {
+        if (canvasManager) {
+            canvasManager.clearAllLayers();
+        }
+    });
     
     // Close layer selector
     closeLayerSelector.addEventListener('click', hideLayerTypeSelector);

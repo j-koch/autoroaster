@@ -18,7 +18,8 @@ export default defineConfig({
         login: resolve(__dirname, 'login.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
         training: resolve(__dirname, 'training.html'),
-        recipes: resolve(__dirname, 'recipes.html')
+        recipes: resolve(__dirname, 'recipes.html'),
+        canvas: resolve(__dirname, 'canvas.html')
       }
     }
   },

@@ -118,6 +118,37 @@ let currentModelTypeFilter: 'all' | 'roaster' | 'bean' = 'all'; // Current model
 const chartInstances: Map<string, Chart> = new Map();
 
 // ========================================
+// HELPER FUNCTIONS
+// ========================================
+
+/**
+ * Format elapsed time from a start timestamp to current time
+ * Returns a human-readable string like "1hr 23min" or "45min" or "2hr 0min"
+ * @param startedAt - ISO timestamp string of when the job started
+ * @returns Formatted elapsed time string
+ */
+function formatElapsedTime(startedAt: string | null): string {
+    if (!startedAt) return 'N/A';
+    
+    const startTime = new Date(startedAt).getTime();
+    const currentTime = new Date().getTime();
+    const elapsedMs = currentTime - startTime;
+    
+    // Convert milliseconds to minutes
+    const elapsedMinutes = Math.floor(elapsedMs / (1000 * 60));
+    
+    // Calculate hours and remaining minutes
+    const hours = Math.floor(elapsedMinutes / 60);
+    const minutes = elapsedMinutes % 60;
+    
+    if (hours > 0) {
+        return `${hours}hr ${minutes}min`;
+    } else {
+        return `${minutes}min`;
+    }
+}
+
+// ========================================
 // AUTHENTICATION
 // ========================================
 
@@ -1105,6 +1136,15 @@ async function startBeanTraining(): Promise<void> {
         const sysidModelJobId = sysidModelSelect.value;
         const beanVariety = beanVarietyInput.value.trim();
         
+        // Check if we're warm starting from a checkpoint by reading from the checkpoint indicator
+        const checkpointIndicator = document.getElementById('checkpointIndicator');
+        const checkpointJobId = checkpointIndicator?.getAttribute('data-checkpoint-job-id') || null;
+        
+        // Clear the checkpoint indicator after reading it (training has been initiated)
+        if (checkpointJobId) {
+            clearCheckpoint();
+        }
+        
         // Create bean training configuration (simplified - only training params needed)
         const beanConfig = {
             bean_hidden_dims: [16],
@@ -1155,7 +1195,8 @@ async function startBeanTraining(): Promise<void> {
                 sysidModelJobId: sysidModelJobId,
                 beanVariety: beanVariety,
                 roastFileIds: Array.from(selectedRoastIds),
-                config: beanConfig
+                config: beanConfig,
+                checkpointJobId: checkpointJobId  // Pass checkpoint job ID for warm starting
             }
         });
         
@@ -1366,18 +1407,32 @@ function updateJobCard(job: TrainingJob): void {
     const jobCard = document.querySelector(`.job-card[data-job-id="${job.id}"]`) as HTMLElement;
     if (!jobCard) return;
     
-    // Update progress bar for running jobs
+    // Update progress indicator for running jobs
     if (job.status === 'running' && job.loss_history?.total && job.loss_history.total.length > 0) {
         const currentEpoch = job.loss_history.total.length;
         const maxEpochs = job.config?.training?.max_epochs || 1000;
-        const progress = Math.round((currentEpoch / maxEpochs) * 100);
+        const elapsedTime = formatElapsedTime(job.started_at);
         
-        const progressBar = jobCard.querySelector('.progress-bar');
-        if (progressBar) {
-            const progressFill = progressBar.querySelector('.progress-fill') as HTMLElement;
-            if (progressFill) {
-                progressFill.style.width = `${progress}%`;
-                progressFill.setAttribute('data-progress', `${progress}%`);
+        // Find and update the progress indicator text (including the clock emoji)
+        // If it doesn't exist, create it (this handles the case where job started running without loss history)
+        let progressIndicator = jobCard.querySelector('.progress-indicator') as HTMLElement;
+        if (progressIndicator) {
+            // Update existing indicator
+            progressIndicator.textContent = `⏱️ Epoch: ${currentEpoch} (${maxEpochs} maximum) - Elapsed time: ${elapsedTime}`;
+        } else {
+            // Create new indicator element if it doesn't exist yet
+            // This happens when a job transitions to 'running' before loss_history is available
+            progressIndicator = document.createElement('div');
+            progressIndicator.className = 'job-info progress-indicator';
+            progressIndicator.style.color = '#007bff';
+            progressIndicator.style.fontWeight = '500';
+            progressIndicator.textContent = `⏱️ Epoch: ${currentEpoch} (${maxEpochs} maximum) - Elapsed time: ${elapsedTime}`;
+            
+            // Insert after the creation date info (the last .job-info element before any status messages)
+            const jobInfoElements = jobCard.querySelectorAll('.job-info');
+            const lastJobInfo = jobInfoElements[jobInfoElements.length - 1];
+            if (lastJobInfo && lastJobInfo.parentNode) {
+                lastJobInfo.parentNode.insertBefore(progressIndicator, lastJobInfo.nextSibling);
             }
         }
         
@@ -1490,13 +1545,14 @@ function displayJobs(): void {
 
     // Full render when job list or status changes
     container.innerHTML = jobs.map(job => {
-        // Calculate progress based on loss_history
-        let progress = 0;
+        // Calculate current epoch and max epochs for running jobs
+        let currentEpoch = 0;
+        let maxEpochs = job.config?.training?.max_epochs || 1000;
+        let elapsedTime = 'N/A';
         
         if (job.loss_history?.total && job.loss_history.total.length > 0) {
-            const currentEpoch = job.loss_history.total.length;
-            const maxEpochs = job.config?.training?.max_epochs || 1000;
-            progress = Math.round((currentEpoch / maxEpochs) * 100);
+            currentEpoch = job.loss_history.total.length;
+            elapsedTime = formatElapsedTime(job.started_at);
         }
         
         // Check if job has loss history to show
@@ -1533,9 +1589,9 @@ function displayJobs(): void {
                 <div class="job-info">
                     🗓️ ${new Date(job.created_at).toLocaleString()}
                 </div>
-                ${job.status === 'running' && progress > 0 ? `
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: ${progress}%" data-progress="${progress}%"></div>
+                ${job.status === 'running' && currentEpoch > 0 ? `
+                    <div class="job-info progress-indicator" style="color: #007bff; font-weight: 500;">
+                        ⏱️ Epoch: ${currentEpoch} (${maxEpochs} maximum) - Elapsed time: ${elapsedTime}
                     </div>
                 ` : ''}
                 ${job.status === 'completed' ? `
@@ -2166,6 +2222,33 @@ async function terminateJob(jobId: string, jobName: string): Promise<void> {
     }
 
     try {
+        // Immediately update UI to show termination in progress
+        const jobCard = document.querySelector(`.job-card[data-job-id="${jobId}"]`);
+        if (jobCard) {
+            // Update status badge
+            const statusBadge = jobCard.querySelector('.job-status');
+            if (statusBadge) {
+                statusBadge.textContent = 'TERMINATING...';
+                statusBadge.className = 'job-status status-pending';
+            }
+            
+            // Disable and update the stop button
+            const stopButton = jobCard.querySelector('.btn-terminate') as HTMLButtonElement;
+            if (stopButton) {
+                stopButton.disabled = true;
+                stopButton.textContent = '⏳ Terminating...';
+                stopButton.style.opacity = '0.6';
+                stopButton.style.cursor = 'not-allowed';
+            }
+            
+            // Update progress indicator if it exists
+            const progressIndicator = jobCard.querySelector('.progress-indicator');
+            if (progressIndicator) {
+                progressIndicator.textContent = '⏳ Termination requested - waiting for server response...';
+                (progressIndicator as HTMLElement).style.color = '#ffc107';
+            }
+        }
+
         const response = await supabase.functions.invoke('terminate-training', {
             body: { jobId: jobId }
         });
@@ -2180,6 +2263,9 @@ async function terminateJob(jobId: string, jobName: string): Promise<void> {
     } catch (error: any) {
         console.error('Error terminating job:', error);
         showMessage(`Failed to terminate job: ${error.message}`, 'error');
+        
+        // Reload jobs to restore correct state on error
+        await loadJobs();
     }
 }
 
@@ -2517,16 +2603,28 @@ async function refreshJobsData(): Promise<void> {
         
         // Check if any job status changed (requires full refresh)
         let statusChanged = false;
+        let lossHistoryChanged = false;
+        
         for (const newJob of newJobs) {
             const oldJob = allJobs.find(j => j.id === newJob.id);
             if (!oldJob || oldJob.status !== newJob.status) {
                 statusChanged = true;
                 break;
             }
+            
+            // Check if loss_history just appeared (job started training)
+            // This requires a full re-render to add the progress indicator
+            const oldHasLossHistory = oldJob.loss_history?.total && oldJob.loss_history.total.length > 0;
+            const newHasLossHistory = newJob.loss_history?.total && newJob.loss_history.total.length > 0;
+            
+            if (!oldHasLossHistory && newHasLossHistory) {
+                lossHistoryChanged = true;
+                break;
+            }
         }
         
-        if (statusChanged) {
-            // Status changed - do full refresh
+        if (statusChanged || lossHistoryChanged) {
+            // Status or loss history changed - do full refresh
             allJobs = newJobs;
             displayJobs();
             return;

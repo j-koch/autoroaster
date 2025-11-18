@@ -756,7 +756,7 @@ export class GeneratorLayer {
       durationInput.addEventListener('change', (e) => {
         const value = parseInt((e.target as HTMLInputElement).value);
         this.config.durationSeconds = value;
-        this.onParameterChange();
+        this.onDurationChange();
       });
     }
     
@@ -776,6 +776,42 @@ export class GeneratorLayer {
    * Handle parameter changes (auto-simulate if models are loaded)
    */
   private async onParameterChange(): Promise<void> {
+    if (this.roasterSession && this.beanSession) {
+      await this.simulateProfile();
+    }
+  }
+  
+  /**
+   * Handle duration changes
+   * Updates control chart x-axis and anchors last control points to new duration
+   */
+  private async onDurationChange(): Promise<void> {
+    // Update the x-axis max of the control chart
+    if (this.controlChart && this.controlChart.options.scales?.x) {
+      this.controlChart.options.scales.x.max = this.config.durationSeconds;
+      
+      // Update the last control point for each control profile to match new duration
+      // This ensures the control profiles extend to the full roast duration
+      const controlTypes: Array<'heater' | 'fan' | 'drum'> = ['heater', 'fan', 'drum'];
+      controlTypes.forEach(controlType => {
+        const profileKey = `${controlType}Profile` as const;
+        const profile = this.config[profileKey] as { time: number; value: number }[];
+        if (profile && profile.length > 0) {
+          // Update the last point's time to match the new duration
+          profile[profile.length - 1].time = this.config.durationSeconds;
+        }
+      });
+      
+      // Update chart datasets with the new control point positions
+      this.controlChart.data.datasets[0].data = this.config.heaterProfile.map(p => ({ x: p.time, y: p.value * 100 }));
+      this.controlChart.data.datasets[1].data = this.config.fanProfile.map(p => ({ x: p.time, y: p.value * 100 }));
+      this.controlChart.data.datasets[2].data = this.config.drumProfile.map(p => ({ x: p.time, y: p.value * 100 }));
+      
+      // Refresh the control chart
+      this.controlChart.update();
+    }
+    
+    // Run simulation with new duration
     if (this.roasterSession && this.beanSession) {
       await this.simulateProfile();
     }

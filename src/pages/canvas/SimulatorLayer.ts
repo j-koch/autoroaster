@@ -43,6 +43,7 @@ export class SimulatorLayer {
   // Simulation state
   private isRunning: boolean = false;
   private simulationTimer: any = null;
+  private speedupFactor: number = 1; // Simulation speed multiplier (1x, 2x, 4x, 8x)
   
   // Current simulator values (from sliders)
   private currentControls = {
@@ -63,6 +64,17 @@ export class SimulatorLayer {
     heater_history: number[];
     fan_history: number[];
     drum_history: number[];
+  } | null = null;
+  
+  // Forecast data storage (4-minute lookahead)
+  private forecastData: {
+    time: number[];
+    bean_temp: number[];
+    bean_surface_temp: number[];
+    drum_temp: number[];
+    air_temp: number[];
+    env_probe_temp: number[];
+    ror: number[];
   } | null = null;
   
   // Current simulation state vector
@@ -197,6 +209,21 @@ export class SimulatorLayer {
         </div>
         <div class="property-value-display">
           <span id="sim-preheat-value">${this.config.preheatTempC}°C</span>
+        </div>
+      </div>
+      
+      <!-- Simulation Speed Section -->
+      <h4 style="margin-top: 20px; margin-bottom: 10px;">Simulation Speed</h4>
+      
+      <div class="property-group">
+        <label class="property-label">Speed</label>
+        <div class="property-control">
+          <select id="sim-speed-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="1">1x (Real-time)</option>
+            <option value="2">2x</option>
+            <option value="4">4x</option>
+            <option value="8" selected>8x</option>
+          </select>
         </div>
       </div>
       
@@ -733,6 +760,22 @@ export class SimulatorLayer {
     if (resetBtn) {
       resetBtn.addEventListener('click', () => this.resetSimulation());
     }
+    
+    // Speed selector
+    const speedSelect = document.getElementById('sim-speed-select') as HTMLSelectElement;
+    if (speedSelect) {
+      speedSelect.addEventListener('change', (e) => {
+        this.speedupFactor = parseFloat((e.target as HTMLSelectElement).value);
+        console.log(`Simulation speed changed to ${this.speedupFactor}x`);
+        
+        // Restart interval with new timing if running
+        if (this.isRunning && this.simulationTimer) {
+          clearInterval(this.simulationTimer);
+          const intervalMs = (this.timestep * 1000) / this.speedupFactor;
+          this.simulationTimer = window.setInterval(() => this.simulationStep(), intervalMs);
+        }
+      });
+    }
   }
   
   /**
@@ -776,6 +819,17 @@ export class SimulatorLayer {
         drum_history: [this.currentControls.drum * 100]
       };
       
+      // Initialize forecast storage
+      this.forecastData = {
+        time: [],
+        bean_temp: [],
+        bean_surface_temp: [],
+        drum_temp: [],
+        air_temp: [],
+        env_probe_temp: [],
+        ror: []
+      };
+      
       // Set running state
       this.isRunning = true;
       
@@ -793,10 +847,11 @@ export class SimulatorLayer {
       if (startBtn) startBtn.disabled = true;
       if (stopBtn) stopBtn.disabled = false;
       
-      // Start simulation timer (run step every timestep)
+      // Start simulation timer (run step every timestep, adjusted by speedup factor)
+      const intervalMs = (this.timestep * 1000) / this.speedupFactor;
       this.simulationTimer = setInterval(() => {
         this.simulationStep();
-      }, this.timestep * 1000); // Convert seconds to milliseconds
+      }, intervalMs); // Convert seconds to milliseconds and adjust for speed
       
       this.showStatus('Simulation started', 'success');
       
@@ -851,6 +906,7 @@ export class SimulatorLayer {
     
     // Clear results
     this.simulatedResults = null;
+    this.forecastData = null;
     this.currentState = null;
     
     // Reset control sliders to 50%
@@ -960,6 +1016,18 @@ export class SimulatorLayer {
       this.simulatedResults.fan_history.push(this.currentControls.fan * 100);
       this.simulatedResults.drum_history.push(this.currentControls.drum * 100);
       
+      // Compute 4-minute forecast from current state
+      const forecast = await this.compute4MinuteForecast();
+      this.forecastData = {
+        time: forecast.time,
+        bean_temp: forecast.bean,
+        bean_surface_temp: forecast.environment,
+        drum_temp: forecast.roaster,
+        air_temp: forecast.air,
+        env_probe_temp: forecast.airMeasured,
+        ror: forecast.rateOfRise
+      };
+      
       // Update status display
       const statusText = document.getElementById('sim-status-text');
       if (statusText) {
@@ -983,6 +1051,144 @@ export class SimulatorLayer {
   }
   
   /**
+   * Compute 4-minute (240-second) forecast from current state
+   * Predicts future temperatures and RoR over the next 4 minutes using current control inputs
+   * 
+   * @returns forecast - Object containing time, temperature, and RoR arrays for all state variables
+   */
+  private async compute4MinuteForecast(): Promise<{
+    time: number[];
+    bean: number[];
+    environment: number[];
+    roaster: number[];
+    air: number[];
+    airMeasured: number[];
+    rateOfRise: number[];
+  }> {
+    // Safety check: ensure we have a current state
+    if (!this.currentState) {
+      return {
+        time: [],
+        bean: [],
+        environment: [],
+        roaster: [],
+        air: [],
+        airMeasured: [],
+        rateOfRise: []
+      };
+    }
+    
+    const forecastHorizon = 240; // seconds into the future (4 minutes)
+    const forecastSteps = Math.ceil(forecastHorizon / this.timestep);
+    
+    // Arrays to store forecast trajectory
+    const forecastTime: number[] = [];
+    const forecastBeanTemp: number[] = [];
+    const forecastEnvironmentTemp: number[] = [];
+    const forecastRoasterTemp: number[] = [];
+    const forecastAirTemp: number[] = [];
+    const forecastAirMeasuredTemp: number[] = [];
+    
+    // Create a copy of current state for forecasting
+    let forecastState = new Float32Array(this.currentState);
+    
+    // Get bean thermal capacity at current state
+    let beanCapacity = 0.5;
+    if (this.beanSession) {
+      const beanModelResult = await this.beanSession.run({
+        bean_temperature: new ort.Tensor('float32', [forecastState[1]], [1, 1])
+      });
+      beanCapacity = beanModelResult.thermal_capacity.data[0] as number;
+    }
+    
+    // Prepare control inputs (fixed at current values for the entire forecast)
+    const forecastControls = new Float32Array(7);
+    forecastControls[0] = this.currentControls.heater;
+    forecastControls[1] = this.currentControls.fan;
+    forecastControls[2] = this.currentControls.drum;
+    forecastControls[3] = this.config.ambientTempC / this.scalingFactors.controls.ambient;
+    forecastControls[4] = this.fixedParams.humidity / this.scalingFactors.controls.humidity;
+    forecastControls[5] = this.config.beanMassG / this.scalingFactors.mass;
+    
+    const dt = new Float32Array([this.timestep / this.scalingFactors.time]);
+    
+    // Get current simulation time (in seconds)
+    const currentTime = this.simulatedResults ? this.simulatedResults.time[this.simulatedResults.time.length - 1] : 0;
+    
+    // Run forecast loop
+    for (let step = 0; step < forecastSteps; step++) {
+      // Update bean capacity based on current forecast state
+      if (this.beanSession) {
+        const beanModelResult = await this.beanSession.run({
+          bean_temperature: new ort.Tensor('float32', [forecastState[1]], [1, 1])
+        });
+        beanCapacity = beanModelResult.thermal_capacity.data[0] as number;
+        forecastControls[6] = beanCapacity;
+      } else {
+        forecastControls[6] = beanCapacity;
+      }
+      
+      // Predict next state using roast stepper
+      if (!this.roasterSession) {
+        throw new Error('Roast stepper model not loaded');
+      }
+      
+      const stepperResult = await this.roasterSession.run({
+        current_state: new ort.Tensor('float32', forecastState, [1, 5]),
+        current_controls: new ort.Tensor('float32', forecastControls, [1, 7]),
+        dt: new ort.Tensor('float32', dt, [1, 1])
+      });
+      
+      // Update forecast state
+      forecastState = new Float32Array(stepperResult.next_state.data as any as number[]);
+      
+      // Store forecast data point (time in seconds)
+      const forecastTimePoint = currentTime + (step + 1) * this.timestep;
+      forecastTime.push(forecastTimePoint);
+      
+      // Extract and denormalize state variables
+      // State vector: [T_r, T_b, T_air, T_bm, T_atm]
+      const tempScale = this.scalingFactors.temperatures.bean;
+      forecastRoasterTemp.push(forecastState[0] * tempScale);
+      forecastEnvironmentTemp.push(forecastState[1] * tempScale);
+      forecastAirTemp.push(forecastState[2] * tempScale);
+      forecastBeanTemp.push(forecastState[3] * tempScale);
+      forecastAirMeasuredTemp.push(forecastState[4] * tempScale);
+    }
+    
+    // Calculate rate of rise for the forecast
+    // Rate of rise (°C/min) is the change in temperature divided by the change in time
+    const forecastRateOfRise: number[] = [];
+    for (let i = 0; i < forecastBeanTemp.length; i++) {
+      if (i === 0) {
+        // For the first forecast point, calculate RoR from current actual temperature to first forecast
+        const currentBeanTemp = this.simulatedResults ? 
+          this.simulatedResults.bean_temp[this.simulatedResults.bean_temp.length - 1] : 0;
+        const timeDiff = (forecastTime[0] - currentTime) / 60; // Convert to minutes
+        const tempDiff = forecastBeanTemp[0] - currentBeanTemp; // °C
+        const rateOfRise = timeDiff > 0 ? tempDiff / timeDiff : 0;
+        forecastRateOfRise.push(Math.max(0, rateOfRise));
+      } else {
+        // For subsequent points, calculate RoR between consecutive forecast points
+        const timeDiff = (forecastTime[i] - forecastTime[i - 1]) / 60; // Convert to minutes
+        const tempDiff = forecastBeanTemp[i] - forecastBeanTemp[i - 1]; // °C
+        const rateOfRise = timeDiff > 0 ? tempDiff / timeDiff : 0;
+        forecastRateOfRise.push(Math.max(0, rateOfRise));
+      }
+    }
+    
+    return {
+      time: forecastTime,
+      bean: forecastBeanTemp,
+      environment: forecastEnvironmentTemp,
+      roaster: forecastRoasterTemp,
+      air: forecastAirTemp,
+      airMeasured: forecastAirMeasuredTemp,
+      rateOfRise: forecastRateOfRise
+    };
+  }
+  
+  /**
    * Get data series for this layer
    * @returns Array of data series to plot
    * 
@@ -993,6 +1199,7 @@ export class SimulatorLayer {
    * - Environment probe temperature
    * - RoR (on right y-axis, 0-50°C/min)
    * - Control traces (heater, fan, drum) scaled to 0-100 range
+   * - 4-minute lookahead curves (dashed lines with reduced opacity)
    */
   async getDataSeries(): Promise<DataSeries[]> {
     const series: DataSeries[] = [];
@@ -1157,6 +1364,104 @@ export class SimulatorLayer {
       },
       yAxisID: 'y'
     });
+    
+    // Add 4-minute lookahead forecast traces (if available)
+    if (this.forecastData && this.forecastData.time.length > 0) {
+      // Bean temperature forecast
+      series.push({
+        label: 'BT Forecast (Sim)',
+        data: this.forecastData.time.map((t, i) => ({ 
+          x: t, 
+          y: this.forecastData!.bean_temp[i] 
+        })),
+        style: {
+          color: baseColor,
+          lineWidth: 2,
+          showPoints: false,
+          pointRadius: 0,
+          lineDash: [5, 5], // Dashed
+          fill: false,
+          fillOpacity: 0
+        },
+        yAxisID: 'y'
+      });
+      
+      // Bean surface forecast
+      series.push({
+        label: 'Surface Forecast (Sim)',
+        data: this.forecastData.time.map((t, i) => ({ 
+          x: t, 
+          y: this.forecastData!.bean_surface_temp[i] 
+        })),
+        style: {
+          color: '#e67e22',
+          lineWidth: 1.5,
+          showPoints: false,
+          pointRadius: 0,
+          lineDash: [5, 5], // Dashed
+          fill: false,
+          fillOpacity: 0
+        },
+        yAxisID: 'y'
+      });
+      
+      // Drum temperature forecast
+      series.push({
+        label: 'Drum Forecast (Sim)',
+        data: this.forecastData.time.map((t, i) => ({ 
+          x: t, 
+          y: this.forecastData!.drum_temp[i] 
+        })),
+        style: {
+          color: '#e67e22',
+          lineWidth: 1.5,
+          showPoints: false,
+          pointRadius: 0,
+          lineDash: [5, 5], // Dashed
+          fill: false,
+          fillOpacity: 0
+        },
+        yAxisID: 'y'
+      });
+      
+      // Air temperature forecast
+      series.push({
+        label: 'Air Forecast (Sim)',
+        data: this.forecastData.time.map((t, i) => ({ 
+          x: t, 
+          y: this.forecastData!.air_temp[i] 
+        })),
+        style: {
+          color: '#9b59b6',
+          lineWidth: 1.5,
+          showPoints: false,
+          pointRadius: 0,
+          lineDash: [5, 5], // Dashed
+          fill: false,
+          fillOpacity: 0
+        },
+        yAxisID: 'y'
+      });
+      
+      // Rate of Rise forecast
+      series.push({
+        label: 'RoR Forecast (Sim)',
+        data: this.forecastData.time.map((t, i) => ({ 
+          x: t, 
+          y: this.forecastData!.ror[i] 
+        })),
+        style: {
+          color: baseColor,
+          lineWidth: 1.5,
+          showPoints: false,
+          pointRadius: 0,
+          lineDash: [5, 5], // Dashed
+          fill: false,
+          fillOpacity: 0
+        },
+        yAxisID: 'y2'
+      });
+    }
     
     return series;
   }

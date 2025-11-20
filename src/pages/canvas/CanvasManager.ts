@@ -771,6 +771,12 @@ export class CanvasManager {
     
     // Set up chart hover handlers for highlighting
     this.setupChartHoverHandlers();
+    
+    // Restore highlighting if a layer is highlighted
+    // This ensures that after data updates, the highlight state is preserved
+    if (this.highlightedLayerId) {
+      this.updateChartHighlight();
+    }
   }
   
   /**
@@ -1060,8 +1066,20 @@ export class CanvasManager {
           const recipeLayer = this.getOrCreateRecipeLayer(layerId, layer as RecipeLayerConfig);
           // RecipeLayer needs to load recipes list before it can provide data
           await (recipeLayer as any).loadRecipes?.();
+        } else if (layer.type === 'generator') {
+          const genLayer = this.getOrCreateGeneratorLayer(layerId, layer as GeneratorLayerConfig);
+          // GeneratorLayer needs to load models and run simulation before it can provide data
+          // Only if models were previously selected
+          if (layer.roasterModelId && layer.beanModelId) {
+            await (genLayer as any).loadModelsAndSimulate?.();
+          }
+        } else if (layer.type === 'simulator') {
+          const simLayer = this.getOrCreateSimulatorLayer(layerId, layer as SimulatorLayerConfig);
+          // SimulatorLayer needs to load models if they were previously selected
+          if (layer.roasterModelId && layer.beanModelId) {
+            await (simLayer as any).loadModelsIfNeeded?.();
+          }
         }
-        // Generator and Simulator layers don't need pre-initialization
       }
       
       // Update UI

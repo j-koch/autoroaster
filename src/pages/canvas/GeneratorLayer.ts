@@ -132,6 +132,14 @@ export class GeneratorLayer {
    * @param container - DOM element to render into
    */
   async renderProperties(container: HTMLElement): Promise<void> {
+    // Destroy existing chart instance if it exists
+    // This is critical when switching between layers - the old canvas element
+    // gets removed from the DOM, so we need to clean up the Chart.js instance
+    if (this.controlChart) {
+      this.controlChart.destroy();
+      this.controlChart = null;
+    }
+    
     // Placeholder: Will be filled in
     container.innerHTML = `
       <div id="generator-layer-content">
@@ -318,15 +326,12 @@ export class GeneratorLayer {
       
       <!-- Action Buttons -->
       <div class="property-group" style="margin-top: 20px;">
-        <button id="gen-simulate-btn" class="btn-primary" style="width: 100%; margin-bottom: 8px;">
-          Simulate Profile
-        </button>
         <button id="gen-save-btn" class="btn-success" style="width: 100%;">
           Save Recipe
         </button>
       </div>
       
-      <!-- Status message area -->
+      <!-- Status message area (errors only) -->
       <div id="gen-status-message" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
         </div>
       </div>
@@ -340,6 +345,12 @@ export class GeneratorLayer {
     
     // Attach event listeners
     this.attachEventListeners();
+    
+    // If models were previously selected, reload them and initialize the chart
+    // This is critical when switching back to this layer after viewing another layer
+    if (this.config.roasterModelId && this.config.beanModelId) {
+      await this.loadModelsIfNeeded();
+    }
   }
   
   /**
@@ -569,6 +580,19 @@ export class GeneratorLayer {
   }
   
   /**
+   * Load models and run simulation (public method for CanvasManager)
+   * This is called when restoring state from localStorage
+   */
+  async loadModelsAndSimulate(): Promise<void> {
+    await this.loadModelsIfNeeded();
+    // Now run simulation with chart update enabled
+    if (this.roasterSession && this.beanSession && this.simulatedResults) {
+      // Trigger chart update to display the results
+      this.onConfigChange();
+    }
+  }
+  
+  /**
    * Load ONNX models if not already loaded
    */
   private async loadModelsIfNeeded(): Promise<void> {
@@ -680,7 +704,8 @@ export class GeneratorLayer {
       }
       
       // Run initial simulation
-      await this.simulateProfile();
+      // Pass false to skip chart update - this preserves layer highlighting when switching layers
+      await this.simulateProfile(false);
       
     } catch (error) {
       console.error('Failed to load models:', error);
@@ -898,15 +923,14 @@ export class GeneratorLayer {
   /**
    * Simulate the roast profile using loaded ONNX models
    * Runs the roaster and bean models forward in time using the control profile
+   * @param triggerChartUpdate - Whether to trigger chart update (default: true)
    */
-  private async simulateProfile(): Promise<void> {
+  private async simulateProfile(triggerChartUpdate: boolean = true): Promise<void> {
     try {
       if (!this.roasterSession || !this.beanSession) {
-        this.showStatus('Models not loaded yet', 'error');
+        // Silently skip if models not loaded
         return;
       }
-      
-      this.showStatus('Simulating profile...', 'info');
       
       // Initialize state with preheat conditions
       // State vector dimensions: [T_r, T_b, T_air, T_bm, T_atm]
@@ -1048,10 +1072,11 @@ export class GeneratorLayer {
         finalTemp: bean_temp[bean_temp.length - 1].toFixed(1) + '°C'
       });
       
-      this.showStatus('Simulation complete', 'success');
-      
-      // Trigger chart update
-      this.onConfigChange();
+      // Trigger chart update only if requested
+      // During automatic reload on layer switch, we skip this to preserve highlight state
+      if (triggerChartUpdate) {
+        this.onConfigChange();
+      }
       
     } catch (error) {
       console.error('Failed to simulate profile:', error);
@@ -1164,10 +1189,14 @@ export class GeneratorLayer {
     // Base color for this layer
     const baseColor = this.config.color || '#2ecc71';
     
+    // Create a unique identifier for this layer's datasets
+    // Using a short portion of the layer ID to keep labels readable
+    const layerSuffix = `(Gen-${this.config.id.slice(-6)})`;
+    
     // Temperature traces (in °C, 0-350 range)
     // Bean temperature (primary)
     series.push({
-      label: 'BT (Generated)',
+      label: `BT ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.bean_temp[i] 
@@ -1186,7 +1215,7 @@ export class GeneratorLayer {
     
     // Rate of Rise (plotted on right axis, 0-50 °C/min range)
     series.push({
-      label: 'RoR (Generated)',
+      label: `RoR ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.ror[i] 
@@ -1205,7 +1234,7 @@ export class GeneratorLayer {
     
     // Bean surface temperature
     series.push({
-      label: 'Bean Surface (Generated)',
+      label: `Bean Surface ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.bean_surface_temp[i] 
@@ -1224,7 +1253,7 @@ export class GeneratorLayer {
     
     // Drum temperature
     series.push({
-      label: 'Drum (Generated)',
+      label: `Drum ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.drum_temp[i] 
@@ -1243,7 +1272,7 @@ export class GeneratorLayer {
     
     // Air temperature
     series.push({
-      label: 'Air (Generated)',
+      label: `Air ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.air_temp[i] 
@@ -1262,7 +1291,7 @@ export class GeneratorLayer {
     
     // Environment probe temperature
     series.push({
-      label: 'Env Probe (Generated)',
+      label: `Env Probe ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.env_probe_temp[i] 
@@ -1284,7 +1313,7 @@ export class GeneratorLayer {
     
     // Heater control
     series.push({
-      label: 'Heater (Generated)',
+      label: `Heater ${layerSuffix}`,
       data: this.config.heaterProfile.map(p => ({ 
         x: p.time, 
         y: p.value * 100  // Convert 0-1 to 0-100
@@ -1304,7 +1333,7 @@ export class GeneratorLayer {
     
     // Fan control
     series.push({
-      label: 'Fan (Generated)',
+      label: `Fan ${layerSuffix}`,
       data: this.config.fanProfile.map(p => ({ 
         x: p.time, 
         y: p.value * 100  // Convert 0-1 to 0-100
@@ -1324,7 +1353,7 @@ export class GeneratorLayer {
     
     // Drum control
     series.push({
-      label: 'Drum (Generated)',
+      label: `Drum ${layerSuffix}`,
       data: this.config.drumProfile.map(p => ({ 
         x: p.time, 
         y: p.value * 100  // Convert 0-1 to 0-100

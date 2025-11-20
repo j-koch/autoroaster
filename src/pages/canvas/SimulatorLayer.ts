@@ -1294,9 +1294,13 @@ export class SimulatorLayer {
     // Base color for this layer
     const baseColor = this.config.color || '#3498db';
     
+    // Create a unique identifier for this layer's datasets
+    // Using a short portion of the layer ID to keep labels readable
+    const layerSuffix = `(Sim-${this.config.id.slice(-6)})`;
+    
     // Bean temperature (primary trace)
     series.push({
-      label: 'BT (Sim)',
+      label: `BT ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.bean_temp[i] 
@@ -1315,7 +1319,7 @@ export class SimulatorLayer {
     
     // Rate of Rise (on right axis)
     series.push({
-      label: 'RoR (Sim)',
+      label: `RoR ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.ror[i] 
@@ -1334,7 +1338,7 @@ export class SimulatorLayer {
     
     // Drum temperature
     series.push({
-      label: 'Drum (Sim)',
+      label: `Drum ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.drum_temp[i] 
@@ -1353,7 +1357,7 @@ export class SimulatorLayer {
     
     // Air temperature
     series.push({
-      label: 'Air (Sim)',
+      label: `Air ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.air_temp[i] 
@@ -1372,7 +1376,7 @@ export class SimulatorLayer {
     
     // Environment probe temperature
     series.push({
-      label: 'Env Probe (Sim)',
+      label: `Env Probe ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.env_probe_temp[i] 
@@ -1392,7 +1396,7 @@ export class SimulatorLayer {
     // Control traces (scaled to 0-100 range to match temperature axis)
     // Heater control
     series.push({
-      label: 'Heater (Sim)',
+      label: `Heater ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.heater_history[i]
@@ -1411,7 +1415,7 @@ export class SimulatorLayer {
     
     // Fan control
     series.push({
-      label: 'Fan (Sim)',
+      label: `Fan ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.fan_history[i]
@@ -1430,7 +1434,7 @@ export class SimulatorLayer {
     
     // Drum control
     series.push({
-      label: 'Drum Speed (Sim)',
+      label: `Drum Speed ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
         x: t, 
         y: this.simulatedResults!.drum_history[i]
@@ -1451,7 +1455,7 @@ export class SimulatorLayer {
     if (this.forecastData && this.forecastData.time.length > 0) {
       // Bean temperature forecast
       series.push({
-        label: 'BT Forecast (Sim)',
+        label: `BT Forecast ${layerSuffix}`,
         data: this.forecastData.time.map((t, i) => ({ 
           x: t, 
           y: this.forecastData!.bean_temp[i] 
@@ -1470,7 +1474,7 @@ export class SimulatorLayer {
       
       // Bean surface forecast
       series.push({
-        label: 'Surface Forecast (Sim)',
+        label: `Surface Forecast ${layerSuffix}`,
         data: this.forecastData.time.map((t, i) => ({ 
           x: t, 
           y: this.forecastData!.bean_surface_temp[i] 
@@ -1489,7 +1493,7 @@ export class SimulatorLayer {
       
       // Drum temperature forecast
       series.push({
-        label: 'Drum Forecast (Sim)',
+        label: `Drum Forecast ${layerSuffix}`,
         data: this.forecastData.time.map((t, i) => ({ 
           x: t, 
           y: this.forecastData!.drum_temp[i] 
@@ -1508,7 +1512,7 @@ export class SimulatorLayer {
       
       // Air temperature forecast
       series.push({
-        label: 'Air Forecast (Sim)',
+        label: `Air Forecast ${layerSuffix}`,
         data: this.forecastData.time.map((t, i) => ({ 
           x: t, 
           y: this.forecastData!.air_temp[i] 
@@ -1527,7 +1531,7 @@ export class SimulatorLayer {
       
       // Rate of Rise forecast
       series.push({
-        label: 'RoR Forecast (Sim)',
+        label: `RoR Forecast ${layerSuffix}`,
         data: this.forecastData.time.map((t, i) => ({ 
           x: t, 
           y: this.forecastData!.ror[i] 

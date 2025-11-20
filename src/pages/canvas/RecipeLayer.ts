@@ -522,10 +522,14 @@ export class RecipeLayer {
       // Base color for this layer
       const baseColor = this.config.color || '#3498db';
       
+      // Create a unique identifier for this layer's datasets
+      // Using a short portion of the layer ID to keep labels readable
+      const layerSuffix = `(Recipe-${this.config.id.slice(-6)})`;
+      
       // Bean temperature trace (bean_temp is the bean probe temperature)
       if (this.config.showBeanTemp) {
         series.push({
-          label: `BT - ${recipe.name}`,
+          label: `BT - ${recipe.name} ${layerSuffix}`,
           data: timeSeconds.map((t, i) => ({ x: t, y: data.simulated_results.bean_temp[i] })),
           style: {
             color: baseColor,
@@ -543,7 +547,7 @@ export class RecipeLayer {
       // Environment temperature trace (env_probe_temp is equivalent to ET)
       if (this.config.showEnvTemp) {
         series.push({
-          label: `ET - ${recipe.name}`,
+          label: `ET - ${recipe.name} ${layerSuffix}`,
           data: timeSeconds.map((t, i) => ({ x: t, y: data.simulated_results.env_probe_temp[i] })),
           style: {
             color: baseColor,
@@ -568,7 +572,7 @@ export class RecipeLayer {
           .filter(point => point.y >= 0); // Only positive RoR values
         
         series.push({
-          label: `RoR - ${recipe.name}`,
+          label: `RoR - ${recipe.name} ${layerSuffix}`,
           data: rorData,
           style: {
             color: baseColor,
@@ -604,7 +608,7 @@ export class RecipeLayer {
         });
         
         series.push({
-          label: `Heater - ${recipe.name}`,
+          label: `Heater - ${recipe.name} ${layerSuffix}`,
           data: heaterData,
           style: {
             color: '#FF4444', // Red for heater
@@ -634,7 +638,7 @@ export class RecipeLayer {
         });
         
         series.push({
-          label: `Fan - ${recipe.name}`,
+          label: `Fan - ${recipe.name} ${layerSuffix}`,
           data: fanData,
           style: {
             color: '#4444FF', // Blue for fan
@@ -664,7 +668,7 @@ export class RecipeLayer {
         });
         
         series.push({
-          label: `Drum - ${recipe.name}`,
+          label: `Drum - ${recipe.name} ${layerSuffix}`,
           data: drumData,
           style: {
             color: '#888888', // Gray for drum

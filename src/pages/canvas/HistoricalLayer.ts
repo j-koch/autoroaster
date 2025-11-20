@@ -594,10 +594,14 @@ export class HistoricalLayer {
       // Base style for this layer
       const baseColor = this.config.color || '#e74c3c';
       
+      // Create a unique identifier for this layer's datasets
+      // Using a short portion of the layer ID to keep labels readable
+      const layerSuffix = `(Hist-${this.config.id.slice(-6)})`;
+      
       // Bean temperature trace
       if (this.config.showBeanTemp) {
         series.push({
-          label: `BT - ${roast.origin || 'Unknown'}`,
+          label: `BT - ${roast.origin || 'Unknown'} ${layerSuffix}`,
           data: timeSeconds.map((t, i) => ({ x: t, y: data.beanTemp[i] })),
           style: {
             color: baseColor,
@@ -615,7 +619,7 @@ export class HistoricalLayer {
       // Environment temperature trace
       if (this.config.showEnvTemp) {
         series.push({
-          label: `ET - ${roast.origin || 'Unknown'}`,
+          label: `ET - ${roast.origin || 'Unknown'} ${layerSuffix}`,
           data: timeSeconds.map((t, i) => ({ x: t, y: data.environmentTemp[i] })),
           style: {
             color: baseColor,
@@ -639,7 +643,7 @@ export class HistoricalLayer {
           .filter(point => point.y >= 0); // Only positive RoR values
         
         series.push({
-          label: `RoR - ${roast.origin || 'Unknown'}`,
+          label: `RoR - ${roast.origin || 'Unknown'} ${layerSuffix}`,
           data: rorData,
           style: {
             color: baseColor,
@@ -659,7 +663,7 @@ export class HistoricalLayer {
       
       if (this.config.showHeater) {
         series.push({
-          label: `Heater - ${roast.origin || 'Unknown'}`,
+          label: `Heater - ${roast.origin || 'Unknown'} ${layerSuffix}`,
           data: timeSeconds.map((t, i) => ({ x: t, y: data.heater[i] })),
           style: {
             color: '#FF4444', // Red for heater
@@ -676,7 +680,7 @@ export class HistoricalLayer {
       
       if (this.config.showFan) {
         series.push({
-          label: `Fan - ${roast.origin || 'Unknown'}`,
+          label: `Fan - ${roast.origin || 'Unknown'} ${layerSuffix}`,
           data: timeSeconds.map((t, i) => ({ x: t, y: data.fan[i] })),
           style: {
             color: '#4444FF', // Blue for fan
@@ -693,7 +697,7 @@ export class HistoricalLayer {
       
       if (this.config.showDrum) {
         series.push({
-          label: `Drum - ${roast.origin || 'Unknown'}`,
+          label: `Drum - ${roast.origin || 'Unknown'} ${layerSuffix}`,
           data: timeSeconds.map((t, i) => ({ x: t, y: data.drum[i] })),
           style: {
             color: '#888888', // Gray for drum

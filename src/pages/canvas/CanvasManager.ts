@@ -709,15 +709,22 @@ export class CanvasManager {
    */
   private getOrCreateSimulatorLayer(layerId: string, config: SimulatorLayerConfig): SimulatorLayer {
     if (!this.layerHandlers.has(layerId)) {
-      // Create new handler with callback to update chart
+      // Create new handler with TWO callbacks:
+      // 1. Full update callback for configuration changes
+      // 2. Chart-only update callback for simulation data updates (avoids re-rendering layer list)
       const handler = new SimulatorLayer(
         this.user,
         config,
         () => {
-          // When config changes, update layer list, chart and save state
+          // Full update: When config changes, update layer list, chart and save state
           this.updateLayerList();
           this.updateChart();
           this.saveCanvasState();
+        },
+        () => {
+          // Chart-only update: For simulation data updates, only update the chart
+          // This avoids re-rendering the layer list which would break hover states
+          this.updateChart();
         }
       );
       this.layerHandlers.set(layerId, handler);

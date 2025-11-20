@@ -43,7 +43,7 @@ export class SimulatorLayer {
   // Simulation state
   private isRunning: boolean = false;
   private simulationTimer: any = null;
-  private speedupFactor: number = 1; // Simulation speed multiplier (1x, 2x, 4x, 8x)
+  private speedupFactor: number = 8; // Simulation speed multiplier (1x, 2x, 4x, 8x) - default 8x to match HTML
   
   // Current simulator values (from sliders)
   private currentControls = {
@@ -80,8 +80,9 @@ export class SimulatorLayer {
   // Current simulation state vector
   private currentState: Float32Array | null = null;
   
-  // Callback for when configuration changes (to trigger chart update)
-  private onConfigChange: () => void;
+  // Callbacks for different types of updates
+  private onConfigChange: () => void;        // Full update: layer list + chart + save
+  private onChartUpdate: () => void;         // Chart-only update: just refresh chart data
   
   // Scaling factors - MUST match dataset.py
   private readonly scalingFactors = {
@@ -109,10 +110,16 @@ export class SimulatorLayer {
   // Physics timestep (seconds)
   private readonly timestep: number = 1.5;
   
-  constructor(user: User, config: SimulatorLayerConfig, onConfigChange: () => void) {
+  constructor(
+    user: User, 
+    config: SimulatorLayerConfig, 
+    onConfigChange: () => void,
+    onChartUpdate: () => void
+  ) {
     this.user = user;
     this.config = config;
     this.onConfigChange = onConfigChange;
+    this.onChartUpdate = onChartUpdate;
   }
   
   /**
@@ -1122,8 +1129,8 @@ export class SimulatorLayer {
         `;
       }
       
-      // Trigger chart update
-      this.onConfigChange();
+      // Trigger chart-only update (avoids re-rendering layer list which breaks hover states)
+      this.onChartUpdate();
       
     } catch (error) {
       console.error('Simulation step failed:', error);
@@ -1374,7 +1381,7 @@ export class SimulatorLayer {
       yAxisID: 'y'
     });
     
-    // Environment probe temperature
+    // Environment probe temperature (T_env)
     series.push({
       label: `Env Probe ${layerSuffix}`,
       data: this.simulatedResults.time.map((t, i) => ({ 
@@ -1387,6 +1394,25 @@ export class SimulatorLayer {
         showPoints: false,
         pointRadius: 0,
         lineDash: [3, 3],
+        fill: false,
+        fillOpacity: 0
+      },
+      yAxisID: 'y'
+    });
+    
+    // Bean core/surface temperature (T_b) - the internal bean temperature
+    series.push({
+      label: `Bean Core ${layerSuffix}`,
+      data: this.simulatedResults.time.map((t, i) => ({ 
+        x: t, 
+        y: this.simulatedResults!.bean_surface_temp[i] 
+      })),
+      style: {
+        color: '#16a085',
+        lineWidth: 1.5,
+        showPoints: false,
+        pointRadius: 0,
+        lineDash: [8, 4], // Long dashed
         fill: false,
         fillOpacity: 0
       },
@@ -1529,6 +1555,25 @@ export class SimulatorLayer {
         yAxisID: 'y'
       });
       
+      // Environment probe temperature forecast (T_env lookahead)
+      series.push({
+        label: `Env Probe Forecast ${layerSuffix}`,
+        data: this.forecastData.time.map((t, i) => ({ 
+          x: t, 
+          y: this.forecastData!.env_probe_temp[i] 
+        })),
+        style: {
+          color: '#95a5a6',
+          lineWidth: 1.5,
+          showPoints: false,
+          pointRadius: 0,
+          lineDash: [5, 5], // Dashed
+          fill: false,
+          fillOpacity: 0
+        },
+        yAxisID: 'y'
+      });
+      
       // Rate of Rise forecast
       series.push({
         label: `RoR Forecast ${layerSuffix}`,
@@ -1546,6 +1591,30 @@ export class SimulatorLayer {
           fillOpacity: 0
         },
         yAxisID: 'y2'
+      });
+      
+      // Add vertical black bar at the transition point between past and future
+      // This is a visual indicator showing where history ends and forecast begins
+      const transitionTime = this.simulatedResults.time[this.simulatedResults.time.length - 1];
+      
+      // Create a vertical line by plotting two points at the same x-coordinate
+      // We span from y=0 to y=350 to cover the full temperature range
+      series.push({
+        label: `Transition ${layerSuffix}`,
+        data: [
+          { x: transitionTime, y: 0 },
+          { x: transitionTime, y: 350 }
+        ],
+        style: {
+          color: '#000000', // Black
+          lineWidth: 2,
+          showPoints: false,
+          pointRadius: 0,
+          lineDash: [], // Solid line
+          fill: false,
+          fillOpacity: 0
+        },
+        yAxisID: 'y'
       });
     }
     

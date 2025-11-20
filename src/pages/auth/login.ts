@@ -25,6 +25,33 @@ const signupButton = document.getElementById('signup-button') as HTMLButtonEleme
 // ========================================
 
 /**
+ * Detect if the user is on a mobile device
+ * @returns true if mobile device detected
+ */
+function isMobileDevice(): boolean {
+    // Check user agent for mobile indicators
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    
+    // Mobile device patterns
+    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    
+    // Also check screen width (tablet/mobile breakpoint)
+    const isSmallScreen = window.innerWidth <= 900;
+    
+    return mobileRegex.test(userAgent) || isSmallScreen;
+}
+
+/**
+ * Get the appropriate landing page based on device type
+ * @returns URL path for the landing page
+ */
+function getLandingPage(): string {
+    // Mobile users go to dashboard (more mobile-friendly)
+    // Desktop users go to canvas (full-featured interface)
+    return isMobileDevice() ? '/dashboard.html' : '/canvas.html';
+}
+
+/**
  * Display a message to the user
  * @param text - Message text to display
  * @param type - Message type: 'error', 'success', or 'info'
@@ -143,12 +170,12 @@ async function handleSignIn(e: Event): Promise<void> {
             throw error;
         }
         
-        // Sign in successful - redirect to canvas
+        // Sign in successful - redirect to appropriate landing page
         showMessage('Sign in successful! Redirecting...', 'success');
         
         // Redirect after a short delay
         setTimeout(() => {
-            window.location.href = '/canvas.html';
+            window.location.href = getLandingPage();
         }, 1000);
         
     } catch (error: any) {
@@ -207,10 +234,10 @@ async function handleSignUp(e: Event): Promise<void> {
             showMessage('Sign up successful! Please check your email to confirm your account.', 'info');
             setButtonLoading(signupButton, false);
         } else {
-            // Auto sign-in successful - redirect to canvas
+            // Auto sign-in successful - redirect to appropriate landing page
             showMessage('Account created successfully! Redirecting...', 'success');
             setTimeout(() => {
-                window.location.href = '/canvas.html';
+                window.location.href = getLandingPage();
             }, 1000);
         }
         
@@ -227,15 +254,15 @@ async function handleSignUp(e: Event): Promise<void> {
 
 /**
  * Check if user is already signed in
- * If yes, redirect to canvas
+ * If yes, redirect to appropriate landing page
  */
 async function checkExistingSession(): Promise<void> {
     try {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-            // User is already signed in - redirect to canvas
-            window.location.href = '/canvas.html';
+            // User is already signed in - redirect to appropriate landing page
+            window.location.href = getLandingPage();
         }
     } catch (error) {
         console.error('Session check error:', error);

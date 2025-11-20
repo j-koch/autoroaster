@@ -60,6 +60,55 @@ let propertiesPanelVisible = true;
 // ========================================
 
 /**
+ * Detect if the user is on a mobile device
+ * @returns true if mobile device detected
+ */
+function isMobileDevice(): boolean {
+    // Check user agent for mobile indicators
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    
+    // Mobile device patterns
+    const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+    
+    // Also check screen width (tablet/mobile breakpoint)
+    const isSmallScreen = window.innerWidth <= 900;
+    
+    return mobileRegex.test(userAgent) || isSmallScreen;
+}
+
+/**
+ * Show mobile blocker overlay if user is on a mobile device
+ * Blocks access to Canvas on mobile with option to continue anyway
+ */
+function showMobileBlockerIfNeeded(): void {
+    // Check if user is on mobile device
+    if (!isMobileDevice()) {
+        return;
+    }
+    
+    // Check if user chose to continue anyway this session
+    const continueAnyway = sessionStorage.getItem('canvas-continue-anyway');
+    if (continueAnyway === 'true') {
+        return;
+    }
+    
+    // Show the blocker overlay
+    const blocker = document.getElementById('mobile-blocker-overlay') as HTMLDivElement;
+    if (blocker) {
+        blocker.style.display = 'flex';
+        
+        // Set up "Continue Anyway" button handler
+        const continueBtn = document.getElementById('continue-anyway-btn') as HTMLButtonElement;
+        if (continueBtn) {
+            continueBtn.addEventListener('click', () => {
+                blocker.style.display = 'none';
+                sessionStorage.setItem('canvas-continue-anyway', 'true');
+            });
+        }
+    }
+}
+
+/**
  * Display a message to the user
  * @param text - Message text to display
  * @param type - Message type: 'error', 'success', or 'info'
@@ -350,6 +399,9 @@ async function init(): Promise<void> {
         console.error('No authenticated user');
         return;
     }
+    
+    // Show mobile blocker overlay if on mobile device
+    showMobileBlockerIfNeeded();
     
     // Set up event listeners
     setupEventListeners();

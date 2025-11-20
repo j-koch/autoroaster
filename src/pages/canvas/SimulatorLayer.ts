@@ -122,11 +122,8 @@ export class SimulatorLayer {
   async renderProperties(container: HTMLElement): Promise<void> {
     // Start with placeholder
     container.innerHTML = `
-      <div class="property-section">
-        <h3>Simulator Layer</h3>
-        <div id="simulator-layer-content">
-          <!-- Content will be dynamically rendered here -->
-        </div>
+      <div id="simulator-layer-content">
+        <!-- Content will be dynamically rendered here -->
       </div>
     `;
     
@@ -154,134 +151,188 @@ export class SimulatorLayer {
     
     // Build the UI with all sections
     contentDiv.innerHTML = `
-      <!-- Color picker section -->
-      <div class="property-group">
-        <label class="property-label">Line Color</label>
-        <div class="property-control">
-          <input type="color" id="sim-color-input" value="${this.config.color || '#3498db'}">
+      <!-- Layer Settings Section -->
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Layer Settings</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
+          <div class="property-group">
+            <label class="property-label">Line Color</label>
+            <div class="property-control">
+              <input type="color" id="sim-color-input" value="${this.config.color || '#3498db'}">
+            </div>
+          </div>
+          
+          <!-- Transparency slider -->
+          <div class="property-group">
+            <label class="property-label">Transparency</label>
+            <div class="property-control">
+              <input type="range" min="0" max="100" value="${(this.config.opacity || 1) * 100}" id="sim-opacity-input">
+            </div>
+            <div class="property-value-display">
+              <span id="sim-opacity-value">${((this.config.opacity || 1) * 100).toFixed(0)}%</span>
+            </div>
+          </div>
         </div>
       </div>
       
-      <!-- Model Selection Tables -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Model Selection</h4>
-      
-      <div class="property-group">
-        <label class="property-label">Roaster Model</label>
-        <div id="sim-roaster-table-container" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">
-          <!-- Roaster model table will be inserted here -->
+      <!-- Model Selection Section -->
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Model Selection</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
         </div>
-      </div>
-      
-      <div class="property-group">
-        <label class="property-label">Bean Model</label>
-        <div id="sim-bean-table-container" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">
-          <!-- Bean model table will be inserted here -->
+        <div class="property-section-content">
+          <div class="property-group">
+            <label class="property-label">Roaster Model</label>
+            <div id="sim-roaster-table-container" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">
+              <!-- Roaster model table will be inserted here -->
+            </div>
+          </div>
+          
+          <div class="property-group">
+            <label class="property-label">Bean Model</label>
+            <div id="sim-bean-table-container" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; margin-top: 8px;">
+              <!-- Bean model table will be inserted here -->
+            </div>
+          </div>
         </div>
       </div>
       
       <!-- Parameters Section -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Roast Parameters</h4>
-      
-      <div class="property-group">
-        <label class="property-label">Bean Mass (g)</label>
-        <div class="property-control">
-          <input type="range" min="50" max="200" step="5" value="${this.config.beanMassG}" id="sim-mass-slider">
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Roast Parameters</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
         </div>
-        <div class="property-value-display">
-          <span id="sim-mass-value">${this.config.beanMassG}g</span>
-        </div>
-      </div>
-      
-      <div class="property-group">
-        <label class="property-label">Ambient Temperature (°C)</label>
-        <div class="property-control">
-          <input type="range" min="15" max="35" step="1" value="${this.config.ambientTempC}" id="sim-ambient-slider">
-        </div>
-        <div class="property-value-display">
-          <span id="sim-ambient-value">${this.config.ambientTempC}°C</span>
-        </div>
-      </div>
-      
-      <div class="property-group">
-        <label class="property-label">Initial Bean Probe Temp (°C)</label>
-        <div class="property-control">
-          <input type="range" min="100" max="220" step="5" value="${this.config.preheatTempC}" id="sim-preheat-slider">
-        </div>
-        <div class="property-value-display">
-          <span id="sim-preheat-value">${this.config.preheatTempC}°C</span>
+        <div class="property-section-content">
+          <div class="property-group">
+            <label class="property-label">Bean Mass (g)</label>
+            <div class="property-control">
+              <input type="range" min="50" max="200" step="5" value="${this.config.beanMassG}" id="sim-mass-slider">
+            </div>
+            <div class="property-value-display">
+              <span id="sim-mass-value">${this.config.beanMassG}g</span>
+            </div>
+          </div>
+          
+          <div class="property-group">
+            <label class="property-label">Ambient Temperature (°C)</label>
+            <div class="property-control">
+              <input type="range" min="15" max="35" step="1" value="${this.config.ambientTempC}" id="sim-ambient-slider">
+            </div>
+            <div class="property-value-display">
+              <span id="sim-ambient-value">${this.config.ambientTempC}°C</span>
+            </div>
+          </div>
+          
+          <div class="property-group">
+            <label class="property-label">Initial Bean Probe Temp (°C)</label>
+            <div class="property-control">
+              <input type="range" min="100" max="220" step="5" value="${this.config.preheatTempC}" id="sim-preheat-slider">
+            </div>
+            <div class="property-value-display">
+              <span id="sim-preheat-value">${this.config.preheatTempC}°C</span>
+            </div>
+          </div>
         </div>
       </div>
       
       <!-- Simulation Speed Section -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Simulation Speed</h4>
-      
-      <div class="property-group">
-        <label class="property-label">Speed</label>
-        <div class="property-control">
-          <select id="sim-speed-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            <option value="1">1x (Real-time)</option>
-            <option value="2">2x</option>
-            <option value="4">4x</option>
-            <option value="8" selected>8x</option>
-          </select>
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Simulation Speed</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
+          <div class="property-group">
+            <label class="property-label">Speed</label>
+            <div class="property-control">
+              <select id="sim-speed-select" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="1">1x (Real-time)</option>
+                <option value="2">2x</option>
+                <option value="4">4x</option>
+                <option value="8" selected>8x</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
       
       <!-- Manual Controls Section -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Manual Controls</h4>
-      
-      <div class="property-group">
-        <label class="property-label">Heater Power (%)</label>
-        <div class="property-control">
-          <input type="range" min="0" max="100" step="1" value="50" id="sim-heater-slider" ${!this.isRunning ? 'disabled' : ''}>
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Manual Controls</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
         </div>
-        <div class="property-value-display">
-          <span id="sim-heater-value">50%</span>
+        <div class="property-section-content">
+          <div class="property-group">
+            <label class="property-label">Heater Power (%)</label>
+            <div class="property-control">
+              <input type="range" min="0" max="100" step="1" value="50" id="sim-heater-slider" ${!this.isRunning ? 'disabled' : ''}>
+            </div>
+            <div class="property-value-display">
+              <span id="sim-heater-value">50%</span>
+            </div>
+          </div>
+          
+          <div class="property-group">
+            <label class="property-label">Fan Speed (%)</label>
+            <div class="property-control">
+              <input type="range" min="0" max="100" step="1" value="50" id="sim-fan-slider" ${!this.isRunning ? 'disabled' : ''}>
+            </div>
+            <div class="property-value-display">
+              <span id="sim-fan-value">50%</span>
+            </div>
+          </div>
+          
+          <div class="property-group">
+            <label class="property-label">Drum Speed (%)</label>
+            <div class="property-control">
+              <input type="range" min="0" max="100" step="1" value="50" id="sim-drum-slider" ${!this.isRunning ? 'disabled' : ''}>
+            </div>
+            <div class="property-value-display">
+              <span id="sim-drum-value">50%</span>
+            </div>
+          </div>
         </div>
       </div>
       
-      <div class="property-group">
-        <label class="property-label">Fan Speed (%)</label>
-        <div class="property-control">
-          <input type="range" min="0" max="100" step="1" value="50" id="sim-fan-slider" ${!this.isRunning ? 'disabled' : ''}>
+      <!-- Simulation Control Section -->
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Simulation Control</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
         </div>
-        <div class="property-value-display">
-          <span id="sim-fan-value">50%</span>
+        <div class="property-section-content">
+          <div class="property-group" style="margin-top: 20px;">
+            <button id="sim-start-btn" class="btn-primary" style="width: 100%; margin-bottom: 8px;">
+              Start Simulation
+            </button>
+            <button id="sim-stop-btn" class="btn-secondary" style="width: 100%; margin-bottom: 8px;" disabled>
+              Stop Simulation
+            </button>
+            <button id="sim-reset-btn" class="btn-secondary" style="width: 100%;">
+              Reset
+            </button>
+          </div>
+          
+          <!-- Status display -->
+          <div id="sim-status" style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 12px; display: none;">
+            <div style="font-weight: bold; margin-bottom: 4px;">Status</div>
+            <div id="sim-status-text">Ready</div>
+          </div>
+          
+          <!-- Status message area -->
+          <div id="sim-status-message" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
         </div>
       </div>
-      
-      <div class="property-group">
-        <label class="property-label">Drum Speed (%)</label>
-        <div class="property-control">
-          <input type="range" min="0" max="100" step="1" value="50" id="sim-drum-slider" ${!this.isRunning ? 'disabled' : ''}>
-        </div>
-        <div class="property-value-display">
-          <span id="sim-drum-value">50%</span>
-        </div>
-      </div>
-      
-      <!-- Action Buttons -->
-      <div class="property-group" style="margin-top: 20px;">
-        <button id="sim-start-btn" class="btn-primary" style="width: 100%; margin-bottom: 8px;">
-          Start Simulation
-        </button>
-        <button id="sim-stop-btn" class="btn-secondary" style="width: 100%; margin-bottom: 8px;" disabled>
-          Stop Simulation
-        </button>
-        <button id="sim-reset-btn" class="btn-secondary" style="width: 100%;">
-          Reset
-        </button>
-      </div>
-      
-      <!-- Status display -->
-      <div id="sim-status" style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 4px; font-size: 12px; display: none;">
-        <div style="font-weight: bold; margin-bottom: 4px;">Status</div>
-        <div id="sim-status-text">Ready</div>
-      </div>
-      
-      <!-- Status message area -->
-      <div id="sim-status-message" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
     `;
+    
+    // Set up collapsible section handlers
+    this.setupCollapsibleSections(contentDiv);
     
     // Render model tables
     this.renderModelTables(roasterModels, beanModels);
@@ -640,6 +691,25 @@ export class SimulatorLayer {
   }
   
   /**
+   * Set up collapsible section handlers
+   * Adds click handlers to toggle sections open/closed
+   */
+  private setupCollapsibleSections(container: HTMLElement): void {
+    const sections = container.querySelectorAll('.property-section');
+    
+    sections.forEach(section => {
+      const header = section.querySelector('.property-section-header');
+      const toggle = section.querySelector('.property-section-toggle');
+      
+      if (header && toggle) {
+        header.addEventListener('click', () => {
+          section.classList.toggle('collapsed');
+        });
+      }
+    });
+  }
+  
+  /**
    * Attach event listeners to property controls
    */
   private attachEventListeners(): void {
@@ -658,6 +728,18 @@ export class SimulatorLayer {
     if (colorInput) {
       colorInput.addEventListener('input', (e) => {
         this.config.color = (e.target as HTMLInputElement).value;
+        this.onConfigChange();
+      });
+    }
+    
+    // Opacity slider
+    const opacityInput = document.getElementById('sim-opacity-input') as HTMLInputElement;
+    const opacityValue = document.getElementById('sim-opacity-value');
+    if (opacityInput && opacityValue) {
+      opacityInput.addEventListener('input', (e) => {
+        const value = parseInt((e.target as HTMLInputElement).value);
+        this.config.opacity = value / 100;
+        opacityValue.textContent = `${value}%`;
         this.onConfigChange();
       });
     }

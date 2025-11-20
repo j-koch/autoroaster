@@ -46,6 +46,7 @@ const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
 const toggleLayersBtn = document.getElementById('toggle-layers-btn') as HTMLButtonElement;
 const togglePropertiesBtn = document.getElementById('toggle-properties-btn') as HTMLButtonElement;
 const floatingToggleLayersBtn = document.getElementById('floating-toggle-layers') as HTMLButtonElement;
+const floatingTogglePropertiesBtn = document.getElementById('floating-toggle-properties') as HTMLButtonElement;
 const canvasLayout = document.getElementById('canvas-layout') as HTMLDivElement;
 const layerPanel = document.getElementById('layer-panel') as HTMLElement;
 const propertiesPanel = document.getElementById('properties-panel') as HTMLElement;
@@ -53,6 +54,11 @@ const propertiesPanel = document.getElementById('properties-panel') as HTMLEleme
 // Panel visibility state
 let layersPanelVisible = true;
 let propertiesPanelVisible = true;
+
+// Detect if we're on mobile (screen width < 900px)
+function isMobileView(): boolean {
+    return window.innerWidth < 900;
+}
 
 // ========================================
 // UTILITY FUNCTIONS
@@ -309,6 +315,7 @@ function setupEventListeners(): void {
     toggleLayersBtn.addEventListener('click', toggleLayersPanel);
     togglePropertiesBtn.addEventListener('click', togglePropertiesPanel);
     floatingToggleLayersBtn.addEventListener('click', toggleLayersPanel);
+    floatingTogglePropertiesBtn.addEventListener('click', togglePropertiesPanel);
     
     // Listen for properties panel changes from CanvasManager
     window.addEventListener('properties-panel-shown', () => {

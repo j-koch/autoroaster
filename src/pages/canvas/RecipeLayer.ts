@@ -97,7 +97,11 @@ export class RecipeLayer {
   private renderPropertiesUI(container: HTMLElement): void {
     container.innerHTML = `
       <div class="property-section">
-        <h3>Layer Settings</h3>
+        <div class="property-section-header">
+          <h3>Layer Settings</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
         
         <!-- Color picker -->
         <div class="property-group">
@@ -148,10 +152,15 @@ export class RecipeLayer {
             </label>
           </div>
         </div>
+        </div>
       </div>
       
       <div class="property-section">
-        <h3>Filters</h3>
+        <div class="property-section-header">
+          <h3>Filters</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
         
         <!-- Filter controls -->
         <div class="property-group">
@@ -173,10 +182,15 @@ export class RecipeLayer {
         <div class="property-group">
           <button id="recipe-clear-filters" class="btn-secondary" style="width: 100%;">Clear Filters</button>
         </div>
+        </div>
       </div>
       
       <div class="property-section">
-        <h3>Select Recipe</h3>
+        <div class="property-section-header">
+          <h3>Select Recipe</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
         <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
           Click a recipe to preview and add it to the layer
         </div>
@@ -202,8 +216,12 @@ export class RecipeLayer {
           <div style="font-weight: bold; margin-bottom: 4px;">Currently Selected:</div>
           <div id="recipe-selected-recipe-info"></div>
         </div>
+        </div>
       </div>
     `;
+    
+    // Set up collapsible section handlers
+    this.setupCollapsibleSections(container);
     
     // Populate filter options
     this.populateFilterOptions();
@@ -444,6 +462,25 @@ export class RecipeLayer {
         this.applyFilters();
       });
     }
+  }
+  
+  /**
+   * Set up collapsible section handlers
+   * Adds click handlers to toggle sections open/closed
+   */
+  private setupCollapsibleSections(container: HTMLElement): void {
+    const sections = container.querySelectorAll('.property-section');
+    
+    sections.forEach(section => {
+      const header = section.querySelector('.property-section-header');
+      const toggle = section.querySelector('.property-section-toggle');
+      
+      if (header && toggle) {
+        header.addEventListener('click', () => {
+          section.classList.toggle('collapsed');
+        });
+      }
+    });
   }
   
   /**

@@ -719,22 +719,80 @@ body {
     color: #999;
 }
 
-/* Property Sections (Model Card Style) */
+/* Property Sections (Model Card Style with Collapsible Header) */
 .property-section {
     background: white;
     border-radius: 8px;
-    padding: 15px;
     margin-bottom: 15px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
 
-.property-section h3 {
+.property-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: linear-gradient(to right, rgba(139, 69, 19, 0.05), rgba(139, 69, 19, 0.02));
+    cursor: pointer;
+    border-bottom: 2px solid #8B4513;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.property-section-header:hover {
+    background: linear-gradient(to right, rgba(139, 69, 19, 0.1), rgba(139, 69, 19, 0.05));
+}
+
+.property-section-header h3 {
     font-size: 14px;
     color: #8B4513;
-    margin-bottom: 12px;
+    margin: 0;
     font-weight: bold;
-    border-bottom: 2px solid #8B4513;
-    padding-bottom: 6px;
+}
+
+.property-section-toggle {
+    background: none;
+    border: none;
+    color: #8B4513;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+}
+
+.property-section-toggle:hover {
+    transform: scale(1.2);
+}
+
+.property-section-content {
+    padding: 15px;
+    max-height: 2000px;
+    overflow: hidden;
+    opacity: 1;
+    transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+}
+
+/* Collapsed state */
+.property-section.collapsed .property-section-content {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+
+.property-section.collapsed .property-section-toggle {
+    transform: rotate(-90deg);
+}
+
+.property-section.collapsed .property-section-header {
+    border-bottom: none;
 }
 
 .property-group {
@@ -887,11 +945,13 @@ body {
     }
 }
 
+/* Tablet breakpoint - Optimize for medium screens */
 @media (max-width: 900px) {
     .main-layout {
         flex-direction: column;
     }
     
+    /* Horizontal navigation sidebar */
     .sidebar {
         width: 100%;
         height: auto;
@@ -907,6 +967,7 @@ body {
         flex-direction: column;
         padding: 12px;
         min-width: 80px;
+        text-align: center;
         border-left: none;
         border-bottom: 4px solid transparent;
     }
@@ -919,15 +980,483 @@ body {
     .sidebar-icon {
         margin-right: 0;
         margin-bottom: 4px;
+        font-size: 24px;
+    }
+    
+    .sidebar-text {
+        font-size: 12px;
+    }
+    
+    /* Canvas layout becomes single column with plot in center */
+    .canvas-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+        height: calc(100vh - 120px); /* Adjust for navbar + horizontal sidebar */
+    }
+    
+    /* Layer panel becomes bottom sheet */
+    .layer-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 150;
+        max-height: 50vh;
+        border-right: none;
+        border-top: 2px solid #8B4513;
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .layer-panel:not(.collapsed) {
+        transform: translateY(0);
+    }
+    
+    /* Properties panel becomes side drawer from right */
+    .properties-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 150;
+        width: 90%;
+        max-width: 400px;
+        border-left: 2px solid #8B4513;
+        box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .properties-panel:not(.collapsed) {
+        transform: translateX(0);
+    }
+    
+    /* Floating action buttons for mobile */
+    .floating-toggle-btn {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 140;
+    }
+    
+    .floating-toggle-left {
+        left: auto;
+        right: 20px;
+        bottom: 80px;
+        top: auto;
+        transform: none;
+    }
+    
+    /* Add FAB for properties panel */
+    .floating-toggle-right {
+        position: fixed;
+        right: 20px;
+        bottom: 150px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 56px;
+        height: 56px;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 140;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s ease;
+        display: none;
+    }
+    
+    .floating-toggle-right:hover {
+        background: linear-gradient(135deg, #764ba2, #667eea);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+        transform: scale(1.1);
+    }
+    
+    /* Show FAB when properties panel is collapsed */
+    .properties-panel.collapsed ~ .floating-toggle-right {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Hide regular toggle buttons on mobile */
+    .layer-panel-header .btn-toggle-panel,
+    .properties-header .btn-toggle-panel {
+        display: none;
+    }
+    
+    /* Add mobile-specific close button */
+    .mobile-close-btn {
+        display: block !important;
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: rgba(0, 0, 0, 0.1);
+        border: none;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 10;
+        color: #666;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-close-btn:hover {
+        background: rgba(0, 0, 0, 0.2);
+        color: #333;
+    }
+    
+    /* Adjust plot container for mobile */
+    .plot-container {
+        position: relative;
+        z-index: 1;
+    }
+    
+    .plot-header {
+        padding: 15px 20px;
+    }
+    
+    .plot-title {
+        font-size: 18px;
+    }
+    
+    .plot-controls {
+        gap: 8px;
+    }
+    
+    .btn-icon {
+        padding: 8px 10px;
+        font-size: 16px;
+    }
+    
+    /* Chart wrapper adjustments */
+    .chart-wrapper {
+        padding: 15px;
+    }
+    
+    /* Layer type selector becomes fullscreen modal on mobile */
+    .layer-type-selector {
+        min-width: 90vw;
+        max-width: 90vw;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    
+    .layer-type-options {
+        padding: 15px;
+    }
+    
+    .layer-type-option {
+        padding: 12px;
+    }
+    
+    .option-icon {
+        font-size: 28px;
+    }
+    
+    /* Adjust layer items for touch */
+    .layer-item {
+        padding: 15px;
+        margin-bottom: 12px;
+    }
+    
+    .layer-visibility,
+    .layer-action-btn {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 6px;
+    }
+    
+    /* Optimize property sections for mobile */
+    .property-section-header {
+        padding: 15px;
+    }
+    
+    .property-section-content {
+        padding: 15px;
+    }
+}
+
+/* Mobile phone breakpoint - Optimize for small screens */
+@media (max-width: 768px) {
+    .navbar {
+        padding: 12px 15px;
+        flex-wrap: wrap;
+    }
+    
+    .navbar-brand {
+        font-size: 20px;
+    }
+    
+    .navbar-user {
+        flex-wrap: wrap;
+        gap: 10px;
+        width: 100%;
+    }
+    
+    .user-email {
+        font-size: 12px;
+    }
+    
+    .btn-signout {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+    
+    /* Smaller sidebar links */
+    .sidebar-link {
+        min-width: 70px;
+        padding: 10px 8px;
+    }
+    
+    .sidebar-icon {
+        font-size: 20px;
+    }
+    
+    .sidebar-text {
+        font-size: 11px;
+    }
+    
+    /* Adjust canvas layout for very small screens */
+    .canvas-layout {
+        height: calc(100vh - 140px);
+    }
+    
+    /* Larger touch targets for FABs */
+    .floating-toggle-btn {
+        width: 60px;
+        height: 60px;
+        font-size: 26px;
+    }
+    
+    .floating-toggle-left {
+        right: 16px;
+        bottom: 70px;
+    }
+    
+    .floating-toggle-right {
+        right: 16px;
+        bottom: 140px;
+    }
+    
+    /* Plot header compact */
+    .plot-header {
+        padding: 12px 15px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .plot-title {
+        font-size: 16px;
+    }
+    
+    .plot-controls {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    
+    /* Reduce chart wrapper padding */
+    .chart-wrapper {
+        padding: 10px;
+    }
+    
+    /* Empty state adjustments */
+    .chart-empty-state h2 {
+        font-size: 20px;
+    }
+    
+    .chart-empty-state p {
+        font-size: 13px;
+    }
+    
+    .empty-canvas-icon {
+        font-size: 60px;
+    }
+    
+    /* Layer panel more compact */
+    .layer-panel {
+        max-height: 60vh;
+    }
+    
+    .layer-panel-header {
+        padding: 15px;
+    }
+    
+    .layer-panel-header h2 {
+        font-size: 18px;
+    }
+    
+    .btn-add-layer {
+        padding: 12px;
+        font-size: 13px;
+    }
+    
+    .layer-list {
+        padding: 8px;
+    }
+    
+    .layer-item {
+        padding: 12px;
+    }
+    
+    .layer-name {
+        font-size: 13px;
+    }
+    
+    .layer-info {
+        font-size: 10px;
+    }
+    
+    /* Properties panel optimizations */
+    .properties-panel {
+        width: 95%;
+        max-width: none;
+    }
+    
+    .properties-header {
+        padding: 15px;
+    }
+    
+    .properties-header h2 {
+        font-size: 16px;
+    }
+    
+    .properties-content {
+        padding: 15px;
+    }
+    
+    .property-section-header h3 {
+        font-size: 13px;
+    }
+    
+    .property-label {
+        font-size: 11px;
+    }
+    
+    .property-control input,
+    .property-control select {
+        font-size: 12px;
+        padding: 6px;
+    }
+    
+    /* Layer type selector fullscreen */
+    .layer-type-selector {
+        min-width: 95vw;
+        max-width: 95vw;
+        max-height: 90vh;
+        border-radius: 8px;
+    }
+    
+    .layer-type-header {
+        padding: 15px;
+    }
+    
+    .layer-type-header h3 {
+        font-size: 16px;
+    }
+    
+    .close-btn {
+        font-size: 32px;
+        width: 36px;
+        height: 36px;
+    }
+    
+    .layer-type-options {
+        padding: 12px;
+        gap: 10px;
+    }
+    
+    .layer-type-option {
+        padding: 12px;
+        grid-template-columns: 36px 1fr;
+        gap: 6px 10px;
+    }
+    
+    .option-icon {
+        font-size: 24px;
+    }
+    
+    .option-title {
+        font-size: 14px;
+    }
+    
+    .option-desc {
+        font-size: 11px;
+    }
+    
+    /* Message display */
+    .message {
+        top: 70px;
+        left: 10px;
+        right: 10px;
+        transform: none;
+        font-size: 12px;
+        padding: 12px 15px;
+        max-width: none;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 480px) {
+    .navbar-brand {
+        font-size: 18px;
+    }
+    
+    .sidebar-link {
+        min-width: 60px;
+        padding: 8px 6px;
+    }
+    
+    .sidebar-icon {
+        font-size: 18px;
+    }
+    
+    .sidebar-text {
+        font-size: 10px;
+    }
+    
+    .floating-toggle-btn {
+        width: 52px;
+        height: 52px;
+        font-size: 22px;
+    }
+    
+    .plot-title {
+        font-size: 14px;
+    }
+    
+    .btn-icon {
+        padding: 6px 8px;
+        font-size: 14px;
+    }
+    
+    .layer-panel-header h2,
+    .properties-header h2 {
+        font-size: 16px;
+    }
+    
+    .btn-add-layer {
+        font-size: 12px;
+        padding: 10px;
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (max-width: 900px) and (orientation: landscape) {
+    .layer-panel {
+        max-height: 70vh;
     }
     
     .canvas-layout {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr auto;
-    }
-    
-    .layer-panel,
-    .properties-panel {
-        max-height: 300px;
+        height: calc(100vh - 100px);
     }
 }

@@ -157,7 +157,11 @@ export class CanvasManager {
                 weight: 'bold'
               }
             },
-            position: 'left'
+            position: 'left',
+            // Constrain y-axis to 0-350°C range unless data exceeds these limits
+            // Using suggestedMin/Max allows the chart to expand if needed
+            suggestedMin: 0,
+            suggestedMax: 350
           },
           y2: {
             type: 'linear',
@@ -172,7 +176,11 @@ export class CanvasManager {
             position: 'right',
             grid: {
               drawOnChartArea: false
-            }
+            },
+            // Constrain RoR axis to 0-30°C/min range unless data exceeds these limits
+            // Using suggestedMin/Max allows the chart to expand if needed
+            suggestedMin: 0,
+            suggestedMax: 30
           }
         },
         interaction: {

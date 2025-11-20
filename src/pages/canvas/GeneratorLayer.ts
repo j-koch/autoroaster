@@ -134,11 +134,8 @@ export class GeneratorLayer {
   async renderProperties(container: HTMLElement): Promise<void> {
     // Placeholder: Will be filled in
     container.innerHTML = `
-      <div class="property-section">
-        <h3>Recipe Generator Layer</h3>
-        <div id="generator-layer-content">
-          <!-- Content will be dynamically rendered here -->
-        </div>
+      <div id="generator-layer-content">
+        <!-- Content will be dynamically rendered here -->
       </div>
     `;
     
@@ -167,15 +164,39 @@ export class GeneratorLayer {
     // Build the UI with all sections
     contentDiv.innerHTML = `
       <!-- Color picker section -->
-      <div class="property-group">
-        <label class="property-label">Line Color</label>
-        <div class="property-control">
-          <input type="color" id="gen-color-input" value="${this.config.color || '#2ecc71'}">
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Layer Settings</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
+          <div class="property-group">
+            <label class="property-label">Line Color</label>
+            <div class="property-control">
+              <input type="color" id="gen-color-input" value="${this.config.color || '#2ecc71'}">
+            </div>
+          </div>
+          
+          <!-- Transparency slider -->
+          <div class="property-group">
+            <label class="property-label">Transparency</label>
+            <div class="property-control">
+              <input type="range" min="0" max="100" value="${(this.config.opacity || 1) * 100}" id="gen-opacity-input">
+            </div>
+            <div class="property-value-display">
+              <span id="gen-opacity-value">${((this.config.opacity || 1) * 100).toFixed(0)}%</span>
+            </div>
+          </div>
         </div>
       </div>
       
       <!-- Model Selection Tables -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Model Selection</h4>
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Model Selection</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
       
       <div class="property-group">
         <label class="property-label">Roaster Model</label>
@@ -190,9 +211,16 @@ export class GeneratorLayer {
           <!-- Bean model table will be inserted here -->
         </div>
       </div>
+        </div>
+      </div>
       
       <!-- Control Profile Editor Section -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Control Profile Editor</h4>
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Control Profile Editor</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
       
       <div class="property-group">
         <label class="property-label">Edit Control Curve</label>
@@ -223,9 +251,16 @@ export class GeneratorLayer {
           <span>Snap to Artisan increments (5%)</span>
         </label>
       </div>
+        </div>
+      </div>
       
       <!-- Parameters Section -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Parameters</h4>
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Parameters</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
       
       <div class="property-group">
         <label class="property-label">Bean Mass (g)</label>
@@ -263,9 +298,16 @@ export class GeneratorLayer {
           <input type="number" min="300" max="1200" step="10" value="${this.config.durationSeconds}" id="gen-duration-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
         </div>
       </div>
+        </div>
+      </div>
       
       <!-- Recipe Info Section -->
-      <h4 style="margin-top: 20px; margin-bottom: 10px;">Recipe Info</h4>
+      <div class="property-section">
+        <div class="property-section-header">
+          <h3>Recipe Info</h3>
+          <button class="property-section-toggle" title="Collapse/Expand">▼</button>
+        </div>
+        <div class="property-section-content">
       
       <div class="property-group">
         <label class="property-label">Recipe Name</label>
@@ -286,7 +328,12 @@ export class GeneratorLayer {
       
       <!-- Status message area -->
       <div id="gen-status-message" style="margin-top: 10px; padding: 10px; border-radius: 4px; display: none;"></div>
+        </div>
+      </div>
     `;
+    
+    // Set up collapsible section handlers
+    this.setupCollapsibleSections(contentDiv);
     
     // Render model tables
     this.renderModelTables(roasterModels, beanModels);
@@ -503,6 +550,25 @@ export class GeneratorLayer {
   }
   
   /**
+   * Set up collapsible section handlers
+   * Adds click handlers to toggle sections open/closed
+   */
+  private setupCollapsibleSections(container: HTMLElement): void {
+    const sections = container.querySelectorAll('.property-section');
+    
+    sections.forEach(section => {
+      const header = section.querySelector('.property-section-header');
+      const toggle = section.querySelector('.property-section-toggle');
+      
+      if (header && toggle) {
+        header.addEventListener('click', () => {
+          section.classList.toggle('collapsed');
+        });
+      }
+    });
+  }
+  
+  /**
    * Load ONNX models if not already loaded
    */
   private async loadModelsIfNeeded(): Promise<void> {
@@ -713,6 +779,18 @@ export class GeneratorLayer {
     if (colorInput) {
       colorInput.addEventListener('input', (e) => {
         this.config.color = (e.target as HTMLInputElement).value;
+        this.onConfigChange();
+      });
+    }
+    
+    // Opacity slider
+    const opacityInput = document.getElementById('gen-opacity-input') as HTMLInputElement;
+    const opacityValue = document.getElementById('gen-opacity-value');
+    if (opacityInput && opacityValue) {
+      opacityInput.addEventListener('input', (e) => {
+        const value = parseInt((e.target as HTMLInputElement).value);
+        this.config.opacity = value / 100;
+        opacityValue.textContent = `${value}%`;
         this.onConfigChange();
       });
     }

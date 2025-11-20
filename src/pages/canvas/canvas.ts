@@ -55,11 +55,6 @@ const propertiesPanel = document.getElementById('properties-panel') as HTMLEleme
 let layersPanelVisible = true;
 let propertiesPanelVisible = true;
 
-// Detect if we're on mobile (screen width < 900px)
-function isMobileView(): boolean {
-    return window.innerWidth < 900;
-}
-
 // ========================================
 // UTILITY FUNCTIONS
 // ========================================

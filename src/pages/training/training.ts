@@ -745,7 +745,7 @@ async function loadRoasts(): Promise<void> {
 /**
  * Populate filter dropdowns with unique values from roast data
  * This function extracts unique values for origin, variety, and process
- * from all roasts and populates the corresponding datalists and select elements
+ * from all roasts and populates the corresponding select elements
  */
 function populateFilterOptions(): void {
     // Extract unique values for each field
@@ -767,26 +767,39 @@ function populateFilterOptions(): void {
     const sortedVarieties = Array.from(varieties).sort();
     const sortedProcesses = Array.from(processes).sort();
     
-    // Populate origin datalist
-    // Clear existing options first to avoid duplicates
-    const originList = document.getElementById('training-origin-list') as HTMLDataListElement;
-    if (originList) {
-        originList.innerHTML = '';
+    // Populate origin dropdown
+    // Keep the "All origins" option at the top, then add the actual values
+    const originSelect = document.getElementById('training-filter-origin') as HTMLSelectElement;
+    if (originSelect) {
+        // Clear existing options except the first "All origins" option
+        while (originSelect.options.length > 1) {
+            originSelect.remove(1);
+        }
+        
+        // Add sorted origin options
         sortedOrigins.forEach(origin => {
             const option = document.createElement('option');
             option.value = origin;
-            originList.appendChild(option);
+            option.textContent = origin;
+            originSelect.appendChild(option);
         });
     }
     
-    // Populate variety datalist
-    const varietyList = document.getElementById('training-variety-list') as HTMLDataListElement;
-    if (varietyList) {
-        varietyList.innerHTML = '';
+    // Populate variety dropdown
+    // Keep the "All varieties" option at the top, then add the actual values
+    const varietySelect = document.getElementById('training-filter-variety') as HTMLSelectElement;
+    if (varietySelect) {
+        // Clear existing options except the first "All varieties" option
+        while (varietySelect.options.length > 1) {
+            varietySelect.remove(1);
+        }
+        
+        // Add sorted variety options
         sortedVarieties.forEach(variety => {
             const option = document.createElement('option');
             option.value = variety;
-            varietyList.appendChild(option);
+            option.textContent = variety;
+            varietySelect.appendChild(option);
         });
     }
     
@@ -814,15 +827,16 @@ function populateFilterOptions(): void {
  * Apply filters and sorting to the roasts list
  */
 function applyRoastFilters(): void {
-    const originFilter = (document.getElementById('training-filter-origin') as HTMLInputElement)?.value.toLowerCase() || '';
-    const varietyFilter = (document.getElementById('training-filter-variety') as HTMLInputElement)?.value.toLowerCase() || '';
+    const originFilter = (document.getElementById('training-filter-origin') as HTMLSelectElement)?.value || '';
+    const varietyFilter = (document.getElementById('training-filter-variety') as HTMLSelectElement)?.value || '';
     const processFilter = (document.getElementById('training-filter-process') as HTMLSelectElement)?.value || '';
     const sortBy = (document.getElementById('training-sort-by') as HTMLSelectElement)?.value || 'roast_date_desc';
     
     // Filter roasts
+    // For select dropdowns, we do exact matching (not substring matching like before)
     filteredRoasts = roasts.filter(roast => {
-        const matchesOrigin = !originFilter || (roast.origin?.toLowerCase().includes(originFilter) ?? false);
-        const matchesVariety = !varietyFilter || (roast.variety?.toLowerCase().includes(varietyFilter) ?? false);
+        const matchesOrigin = !originFilter || roast.origin === originFilter;
+        const matchesVariety = !varietyFilter || roast.variety === varietyFilter;
         const matchesProcess = !processFilter || roast.process === processFilter;
         
         return matchesOrigin && matchesVariety && matchesProcess;
@@ -1076,11 +1090,17 @@ function handleTrainingTypeChange(): void {
     const modelConfigSection = document.querySelectorAll('.config-section')[1] as HTMLDetailsElement;
     const lossConfigSection = document.querySelectorAll('.config-section')[2] as HTMLDetailsElement;
     
+    // Get variety filter elements for styling
+    const varietyRequiredIndicator = document.getElementById('variety-required-indicator');
+    
     if (trainingType === 'bean') {
         // Show bean-specific fields
         if (beanTrainingFields) {
             beanTrainingFields.style.display = 'block';
         }
+        
+        // Show variety required indicator (red asterisk only)
+        if (varietyRequiredIndicator) varietyRequiredIndicator.style.display = 'inline';
         
         // Hide system ID configuration sections (they're frozen for bean training)
         // Only show basic training configuration
@@ -1093,6 +1113,9 @@ function handleTrainingTypeChange(): void {
         if (beanTrainingFields) {
             beanTrainingFields.style.display = 'none';
         }
+        
+        // Hide variety required indicator
+        if (varietyRequiredIndicator) varietyRequiredIndicator.style.display = 'none';
         
         // Show all configuration sections for system ID training
         if (dataConfigSection) dataConfigSection.style.display = 'block';
@@ -1126,15 +1149,38 @@ async function startBeanTraining(): Promise<void> {
             return;
         }
         
-        // Validation: Check bean variety is provided
-        const beanVarietyInput = document.getElementById('beanVariety') as HTMLInputElement;
-        if (!beanVarietyInput || !beanVarietyInput.value.trim()) {
-            showMessage('Please enter a bean variety name', 'error');
+        // Validation: Check bean variety is provided via the variety filter
+        const varietyFilterSelect = document.getElementById('training-filter-variety') as HTMLSelectElement;
+        if (!varietyFilterSelect || !varietyFilterSelect.value) {
+            showMessage('Please select a bean variety using the Variety filter in the data selection section', 'error');
+            return;
+        }
+        
+        const beanVariety = varietyFilterSelect.value;
+        
+        // Validation: Check that all selected roasts have the same variety
+        // This ensures we're training on a single bean type
+        const selectedRoasts = roasts.filter(r => selectedRoastIds.has(r.id));
+        const varieties = new Set(selectedRoasts.map(r => r.variety?.toLowerCase().trim()));
+        
+        if (varieties.size === 0) {
+            showMessage('No roasts selected. Please select roasts with the specified variety.', 'error');
+            return;
+        }
+        
+        if (varieties.size > 1) {
+            showMessage('Selected roasts contain multiple varieties. For bean training, all roasts must be of the same variety.', 'error');
+            return;
+        }
+        
+        // Check that the selected variety matches the filter
+        const selectedVariety = Array.from(varieties)[0];
+        if (selectedVariety !== beanVariety.toLowerCase().trim()) {
+            showMessage(`Selected roasts have variety "${selectedVariety}" but filter shows "${beanVariety}". Please ensure the filter matches the selected roasts.`, 'error');
             return;
         }
         
         const sysidModelJobId = sysidModelSelect.value;
-        const beanVariety = beanVarietyInput.value.trim();
         
         // Check if we're warm starting from a checkpoint by reading from the checkpoint indicator
         const checkpointIndicator = document.getElementById('checkpointIndicator');
@@ -1208,8 +1254,11 @@ async function startBeanTraining(): Promise<void> {
         selectedRoastIds.clear();
         displayRoasts();
         (document.getElementById('jobName') as HTMLInputElement).value = '';
-        beanVarietyInput.value = '';
+        varietyFilterSelect.selectedIndex = 0; // Reset to "All varieties"
         sysidModelSelect.selectedIndex = 0;
+        
+        // Also clear the filter to reset the view
+        applyRoastFilters();
         
         // Reload jobs list
         loadJobs();
@@ -2314,58 +2363,72 @@ async function deleteJob(jobId: string, jobName: string): Promise<void> {
 
             if (jobError) throw jobError;
 
-            // Storage path format: {user_id}/jobs/{job_id}/
-            const storagePath = `${jobData.user_id}/jobs/${jobId}`;
-            
-            // Delete all files in the job's storage directory
-            console.log(`Deleting incomplete job files from storage path: ${storagePath}`);
-            
-            try {
-                // List files in the job directory
-                const { data: fileList, error: listError } = await supabase
+        // Storage path format: {user_id}/jobs/{job_id}/
+        const storagePath = `${jobData.user_id}/jobs/${jobId}`;
+        
+        // Delete all files in the job's storage directory
+        console.log(`Deleting incomplete job files from storage path: ${storagePath}`);
+        
+        try {
+            // List files in the job directory
+            const { data: fileList, error: listError } = await supabase
+                .storage
+                .from('trained-models')
+                .list(storagePath, {
+                    limit: 1000,
+                    sortBy: { column: 'name', order: 'asc' }
+                });
+
+            if (listError) {
+                console.warn('Error listing files:', listError);
+            } else if (fileList && fileList.length > 0) {
+                // Delete each file
+                const filePaths = fileList.map(file => `${storagePath}/${file.name}`);
+                
+                // Also check for evaluations subdirectory
+                const { data: evalFileList, error: evalListError } = await supabase
                     .storage
                     .from('trained-models')
-                    .list(storagePath, {
+                    .list(`${storagePath}/evaluations`, {
                         limit: 1000,
                         sortBy: { column: 'name', order: 'asc' }
                     });
 
-                if (listError) {
-                    console.warn('Error listing files:', listError);
-                } else if (fileList && fileList.length > 0) {
-                    // Delete each file
-                    const filePaths = fileList.map(file => `${storagePath}/${file.name}`);
-                    
-                    // Also check for evaluations subdirectory
-                    const { data: evalFileList, error: evalListError } = await supabase
-                        .storage
-                        .from('trained-models')
-                        .list(`${storagePath}/evaluations`, {
-                            limit: 1000,
-                            sortBy: { column: 'name', order: 'asc' }
-                        });
-
-                    if (!evalListError && evalFileList && evalFileList.length > 0) {
-                        const evalFilePaths = evalFileList.map(file => `${storagePath}/evaluations/${file.name}`);
-                        filePaths.push(...evalFilePaths);
-                    }
-                    
-                    console.log(`Deleting ${filePaths.length} files from storage`);
-                    
-                    const { error: deleteError } = await supabase
-                        .storage
-                        .from('trained-models')
-                        .remove(filePaths);
-
-                    if (deleteError) {
-                        console.warn('Error deleting some storage files:', deleteError);
-                        // Continue anyway - don't fail the entire operation
-                    }
+                if (!evalListError && evalFileList && evalFileList.length > 0) {
+                    const evalFilePaths = evalFileList.map(file => `${storagePath}/evaluations/${file.name}`);
+                    filePaths.push(...evalFilePaths);
                 }
-            } catch (storageError: any) {
-                console.warn('Warning: Error deleting storage files:', storageError);
-                // Continue with database deletion even if storage deletion fails
+                
+                // Also check for checkpoints subdirectory (this was missing!)
+                const { data: checkpointFileList, error: checkpointListError } = await supabase
+                    .storage
+                    .from('trained-models')
+                    .list(`${storagePath}/checkpoints`, {
+                        limit: 1000,
+                        sortBy: { column: 'name', order: 'asc' }
+                    });
+
+                if (!checkpointListError && checkpointFileList && checkpointFileList.length > 0) {
+                    const checkpointFilePaths = checkpointFileList.map(file => `${storagePath}/checkpoints/${file.name}`);
+                    filePaths.push(...checkpointFilePaths);
+                }
+                
+                console.log(`Deleting ${filePaths.length} files from storage`);
+                
+                const { error: deleteError } = await supabase
+                    .storage
+                    .from('trained-models')
+                    .remove(filePaths);
+
+                if (deleteError) {
+                    console.warn('Error deleting some storage files:', deleteError);
+                    // Continue anyway - don't fail the entire operation
+                }
             }
+        } catch (storageError: any) {
+            console.warn('Warning: Error deleting storage files:', storageError);
+            // Continue with database deletion even if storage deletion fails
+        }
         } else {
             console.log(`Job ${jobId} is completed - preserving model files in storage`);
         }
@@ -2486,6 +2549,20 @@ async function deleteModel(modelId: string, modelName: string): Promise<void> {
                 if (!evalListError && evalFileList && evalFileList.length > 0) {
                     const evalFilePaths = evalFileList.map(file => `${storagePath}/evaluations/${file.name}`);
                     filePaths.push(...evalFilePaths);
+                }
+                
+                // Also check for checkpoints subdirectory (completed models keep checkpoints for warm starting)
+                const { data: checkpointFileList, error: checkpointListError } = await supabase
+                    .storage
+                    .from('trained-models')
+                    .list(`${storagePath}/checkpoints`, {
+                        limit: 1000,
+                        sortBy: { column: 'name', order: 'asc' }
+                    });
+
+                if (!checkpointListError && checkpointFileList && checkpointFileList.length > 0) {
+                    const checkpointFilePaths = checkpointFileList.map(file => `${storagePath}/checkpoints/${file.name}`);
+                    filePaths.push(...checkpointFilePaths);
                 }
                 
                 console.log(`Deleting ${filePaths.length} files from storage`);

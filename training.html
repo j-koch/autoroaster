@@ -203,10 +203,8 @@
                                     <small>The pre-trained roaster model to use as a base</small>
                                 </div>
                                 
-                                <div class="form-group">
-                                    <label>Bean Variety <span style="color: #d32f2f;">*</span></label>
-                                    <input type="text" id="beanVariety" placeholder="e.g., Sakaro, Guji, Hambela Buliye">
-                                    <small>Name of the bean variety (must match roast metadata)</small>
+                                <div class="info-box" style="background-color: #e3f2fd; border-left: 4px solid #2196f3; padding: 12px; margin-top: 15px;">
+                                    Bean model training requires selection of historical roasts of a single variety.
                                 </div>
                             </div>
 
@@ -219,17 +217,23 @@
                                     <div class="filter-row">
                                         <div class="filter-group">
                                             <label for="training-filter-origin">Origin</label>
-                                            <input type="text" id="training-filter-origin" list="training-origin-list" placeholder="Filter by origin...">
-                                            <datalist id="training-origin-list">
+                                            <select id="training-filter-origin">
+                                                <option value="">All origins</option>
                                                 <!-- Options will be populated dynamically -->
-                                            </datalist>
+                                            </select>
                                         </div>
-                                        <div class="filter-group">
-                                            <label for="training-filter-variety">Variety</label>
-                                            <input type="text" id="training-filter-variety" list="training-variety-list" placeholder="Filter by variety...">
-                                            <datalist id="training-variety-list">
+                                        <div class="filter-group" id="variety-filter-group">
+                                            <label for="training-filter-variety">
+                                                Variety
+                                                <span id="variety-required-indicator" style="color: #d32f2f; display: none;">*</span>
+                                            </label>
+                                            <select id="training-filter-variety">
+                                                <option value="">All varieties</option>
                                                 <!-- Options will be populated dynamically -->
-                                            </datalist>
+                                            </select>
+                                            <small id="variety-filter-hint" style="display: none; color: #d32f2f; font-weight: 500;">
+                                                Required for bean training - select a single variety
+                                            </small>
                                         </div>
                                         <div class="filter-group">
                                             <label for="training-filter-process">Process</label>

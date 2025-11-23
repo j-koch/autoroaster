@@ -42,6 +42,30 @@ body {
     opacity: 0.9;
 }
 
+.beta-banner {
+    background-color: #fff3cd;
+    border-bottom: 2px solid #ffc107;
+    padding: 15px 20px;
+    text-align: center;
+}
+
+.beta-banner p {
+    margin: 0;
+    font-size: 13px;
+    color: #856404;
+    line-height: 1.5;
+}
+
+.beta-banner a {
+    color: #8B4513;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.beta-banner a:hover {
+    text-decoration: underline;
+}
+
 .auth-body {
     padding: 30px;
 }

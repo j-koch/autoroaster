@@ -487,6 +487,73 @@ body {
     line-height: 1.6;
 }
 
+/* Blog Section */
+.blog-section {
+    padding: 60px 40px;
+    background-color: #f9f9f9;
+}
+
+.blog-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 60px;
+    align-items: center;
+}
+
+.blog-sidebar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.blog-contact {
+    background-color: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.blog-contact-text {
+    font-size: 16px;
+    color: #333;
+    line-height: 1.7;
+    text-align: left;
+}
+
+.blog-contact-text a {
+    color: #8B4513;
+    text-decoration: none;
+    border-bottom: 2px solid #8B4513;
+    font-weight: bold;
+    transition: opacity 0.3s ease;
+}
+
+.blog-contact-text a:hover {
+    opacity: 0.7;
+}
+
+.blog-embed-wrapper {
+    position: relative;
+}
+
+.blog-embed-container {
+    /* Fixed-height container for the micro-blog embed */
+    height: 500px;
+    background-color: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow-y: auto;
+}
+
+/* Styling for the embedded content */
+.blog-embed-container blockquote {
+    margin: 0;
+    padding: 0;
+}
+
 /* Technology Section */
 .technology-section {
     padding: 100px 40px;
@@ -707,6 +774,11 @@ body {
         grid-template-columns: 1fr;
     }
     
+    .blog-content {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+    
     .technology-content {
         grid-template-columns: 1fr;
         gap: 50px;
@@ -757,10 +829,33 @@ body {
     }
     
     .features-section,
+    .blog-section,
     .technology-section,
     .use-cases-section,
     .contact-section {
         padding: 60px 20px;
+    }
+    
+    .blog-title {
+        font-size: 24px;
+        text-align: left;
+    }
+    
+    .blog-sidebar {
+        gap: 25px;
+    }
+    
+    .blog-contact {
+        padding: 20px;
+    }
+    
+    .blog-contact-text {
+        font-size: 15px;
+    }
+    
+    .blog-embed-container {
+        height: 400px;
+        padding: 15px;
     }
     
     .features-grid {

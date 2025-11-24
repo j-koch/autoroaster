@@ -458,7 +458,7 @@ body {
 }
 
 .feature-card {
-    background-color: #fafafa;
+    background-color: #f5f5f5;
     padding: 30px 25px;
     border-radius: 12px;
     transition: all 0.3s ease;
@@ -490,7 +490,7 @@ body {
 /* Blog Section */
 .blog-section {
     padding: 60px 40px;
-    background-color: #f9f9f9;
+    background-color: #ffffff;
 }
 
 .blog-content {
@@ -504,25 +504,48 @@ body {
 
 .blog-sidebar {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+.section-label {
+    font-size: 24px;
+    font-style: italic;
+    color: #333;
+    margin-bottom: 20px;
+    font-weight: normal;
+}
+
+/* Feature cards within blog section */
+.blog-sidebar .features-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    width: 100%;
+}
+
+/* Contact card (7th card) styling */
+.contact-card {
+    background-color: #f5f5f5;
+    padding: 30px 25px;
+    border-radius: 12px;
+    box-shadow: none;
+    display: flex;
     align-items: center;
     justify-content: center;
+    grid-column: 1 / -1;
 }
 
-.blog-contact {
-    background-color: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-
-.blog-contact-text {
+.contact-card-text {
     font-size: 16px;
     color: #333;
     line-height: 1.7;
-    text-align: left;
+    text-align: center;
+    margin: 0;
 }
 
-.blog-contact-text a {
+.contact-card-text a {
     color: #8B4513;
     text-decoration: none;
     border-bottom: 2px solid #8B4513;
@@ -530,17 +553,19 @@ body {
     transition: opacity 0.3s ease;
 }
 
-.blog-contact-text a:hover {
+.contact-card-text a:hover {
     opacity: 0.7;
 }
 
 .blog-embed-wrapper {
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
 .blog-embed-container {
     /* Fixed-height container for the micro-blog embed */
-    height: 500px;
+    height: 1000px;
     background-color: white;
     border-radius: 12px;
     padding: 20px;

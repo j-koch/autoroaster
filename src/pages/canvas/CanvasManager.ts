@@ -131,7 +131,7 @@ export class CanvasManager {
             type: 'linear',
             title: {
               display: true,
-              text: 'Time (seconds)',
+              text: 'Time (mm:ss)',
               font: {
                 size: 14,
                 weight: 'bold'

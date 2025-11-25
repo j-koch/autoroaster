@@ -830,6 +830,34 @@ function displayFilteredRoasts(): void {
         checkbox.addEventListener('change', handleCheckboxChange);
     });
     
+    // Add click event listeners to table rows for single-roast visualization
+    // Clicking on a row (but not on buttons/checkboxes) will visualize that roast
+    document.querySelectorAll('tr[data-roast-id]').forEach(row => {
+        row.addEventListener('click', (e) => {
+            const target = e.target as HTMLElement;
+            
+            // Don't trigger visualization if clicking on buttons, checkboxes, or action buttons
+            // This allows the edit/delete/download buttons to work normally
+            if (
+                target.tagName === 'BUTTON' || 
+                target.tagName === 'INPUT' ||
+                target.closest('button') ||
+                target.closest('input')
+            ) {
+                return;
+            }
+            
+            // Get roast ID from the row's data attribute
+            const roastId = (row as HTMLTableRowElement).dataset.roastId;
+            if (roastId) {
+                visualizeSingleRoast(roastId);
+            }
+        });
+        
+        // Add visual feedback - make row appear clickable
+        (row as HTMLTableRowElement).style.cursor = 'pointer';
+    });
+    
     // Add event listeners for action buttons
     document.querySelectorAll('.btn-edit').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1060,6 +1088,55 @@ async function visualizeSelectedRoasts(): Promise<void> {
         // Hide loading, show charts
         vizPanelLoading.style.display = 'none';
         vizPanelCharts.style.display = 'flex';
+        
+    } catch (error: any) {
+        console.error('Visualization error:', error);
+        vizPanelLoading.style.display = 'none';
+        vizPanelCharts.style.display = 'flex';
+        tempChart.innerHTML = `<div style="padding: 40px; text-align: center; color: #dc3545;">
+            Failed to load roast data: ${error.message}
+        </div>`;
+    }
+}
+
+/**
+ * Visualize a single roast in the inline panel
+ * This function is called when clicking on a table row
+ * 
+ * @param roastId - The ID of the roast to visualize
+ */
+async function visualizeSingleRoast(roastId: string): Promise<void> {
+    // Find the roast in the allRoasts array
+    const roast = allRoasts.find(r => r.id === roastId);
+    if (!roast) {
+        showMessage('Roast not found', 'error');
+        return;
+    }
+    
+    // Update title with roast information
+    vizPanelTitle.textContent = `${roast.origin || 'Unknown'} - ${roast.variety || 'Unknown'} (${formatDate(roast.roast_date)})`;
+    
+    // Show loading, hide empty state and charts
+    vizPanelLoading.style.display = 'block';
+    vizPanelEmpty.style.display = 'none';
+    vizPanelCharts.style.display = 'none';
+    tempChart.innerHTML = '';
+    controlChart.innerHTML = '';
+    
+    try {
+        // Fetch roast data
+        const data = await fetchRoastData(roast.file_url, roast.id);
+        const ror = calculateRateOfRise(data.beanTemp, data.timeMinutes);
+        
+        // Create single roast visualization (pass as array with one element)
+        await createRoastVisualization([{ roast, data, ror }]);
+        
+        // Hide loading, show charts
+        vizPanelLoading.style.display = 'none';
+        vizPanelCharts.style.display = 'flex';
+        
+        // Highlight the table row for this roast
+        highlightTableRow(roastId);
         
     } catch (error: any) {
         console.error('Visualization error:', error);

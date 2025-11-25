@@ -206,6 +206,31 @@ export class RecipeVisualizer {
   private createRecipeRow(recipe: Recipe): HTMLTableRowElement {
     const row = document.createElement('tr');
     
+    // Add data attribute for row identification
+    row.setAttribute('data-recipe-id', recipe.id);
+    
+    // Add click event listener to row for visualization
+    // Clicking anywhere on the row (except buttons/checkboxes) will visualize the recipe
+    row.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      
+      // Don't trigger visualization if clicking on buttons, checkboxes, or their children
+      if (
+        target.tagName === 'BUTTON' || 
+        target.tagName === 'INPUT' ||
+        target.closest('button') ||
+        target.closest('input')
+      ) {
+        return;
+      }
+      
+      // Visualize this recipe
+      this.visualizeRecipe(recipe.id);
+    });
+    
+    // Add visual feedback - make row appear clickable
+    row.style.cursor = 'pointer';
+    
     // Checkbox
     const checkboxCell = document.createElement('td');
     const checkbox = document.createElement('input');
@@ -332,6 +357,28 @@ export class RecipeVisualizer {
   }
   
   /**
+   * Highlight a recipe row in the table and scroll to it
+   * @param recipeId - The ID of the recipe to highlight
+   */
+  private highlightTableRow(recipeId: string | null): void {
+    // Remove previous highlighting
+    const allRows = this.tableBody.querySelectorAll('tr[data-recipe-id]');
+    allRows.forEach(row => {
+      row.classList.remove('roast-highlighted');
+    });
+    
+    // Add highlighting to the new row if recipeId is provided
+    if (recipeId) {
+      const row = this.tableBody.querySelector(`tr[data-recipe-id="${recipeId}"]`) as HTMLTableRowElement;
+      if (row) {
+        row.classList.add('roast-highlighted');
+        // Scroll the row into view smoothly
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }
+  
+  /**
    * Visualize a single recipe
    * @param recipeId - ID of the recipe to visualize
    */
@@ -339,6 +386,9 @@ export class RecipeVisualizer {
     this.selectedRecipeIds.clear();
     this.selectedRecipeIds.add(recipeId);
     this.visualizeSelected();
+    
+    // Highlight the table row for this recipe
+    this.highlightTableRow(recipeId);
   }
   
   /**

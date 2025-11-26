@@ -386,7 +386,7 @@ function initializeCharts(): void {
     // Temperature chart with dual y-axis (temperature + rate of rise)
     const tempLayout = {
         title: {
-            text: 'James\'s Kaleido M1',
+            text: 'James\'s Kaleido M1 - Ethiopia Guji Tuku - 150g',
             font: { size: 14 }
         },
         xaxis: {

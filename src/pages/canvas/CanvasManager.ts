@@ -27,6 +27,7 @@ import { HistoricalLayer } from './HistoricalLayer';
 import { RecipeLayer } from './RecipeLayer';
 import { GeneratorLayer } from './GeneratorLayer';
 import { SimulatorLayer } from './SimulatorLayer';
+import { supabase } from '../../lib/supabase';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -501,6 +502,30 @@ export class CanvasManager {
   }
   
   /**
+   * Update a single layer card in the UI without re-rendering all layers
+   * This prevents the visual jarring effect of all layers showing "Loading..." when one changes
+   * @param layerId - ID of the layer to update
+   */
+  private updateSingleLayerCard(layerId: string): void {
+    const layer = this.layers.get(layerId);
+    if (!layer) return;
+    
+    // Find the existing layer element in the DOM
+    const existingLayerEl = document.querySelector(`[data-layer-id="${layerId}"]`)?.closest('.layer-item');
+    if (!existingLayerEl) {
+      // If not found, fall back to full update (shouldn't happen normally)
+      this.updateLayerList();
+      return;
+    }
+    
+    // Create the new layer element
+    const newLayerEl = this.createLayerElement(layerId, layer);
+    
+    // Replace the old element with the new one
+    existingLayerEl.replaceWith(newLayerEl);
+  }
+  
+  /**
    * Create a DOM element for a layer
    * @param layerId - Layer ID
    * @param layer - Layer configuration
@@ -528,6 +553,9 @@ export class CanvasManager {
       layerColor = layer.color;
     }
     
+    // Get detailed info for the layer (will be populated asynchronously)
+    const detailsHtml = this.getLayerDetailsHTML(layer);
+    
     div.innerHTML = `
       <div class="layer-header">
         <button class="layer-visibility ${!layer.visible ? 'hidden' : ''}" data-layer-id="${layerId}">
@@ -542,7 +570,7 @@ export class CanvasManager {
           </button>
         </div>
       </div>
-      <div class="layer-info">${layer.type} layer</div>
+      <div class="layer-info" id="layer-info-${layerId}">${detailsHtml}</div>
     `;
     
     // Add click handler for selection
@@ -589,6 +617,216 @@ export class CanvasManager {
     }
     
     return div;
+  }
+  
+  /**
+   * Get HTML for layer details based on layer type
+   * This provides a synchronous initial render, with async updates if needed
+   * @param layer - Layer configuration
+   * @returns HTML string with layer details
+   */
+  private getLayerDetailsHTML(layer: AnyLayerConfig): string {
+    switch (layer.type) {
+      case 'generator':
+      case 'simulator': {
+        const config = layer as GeneratorLayerConfig | SimulatorLayerConfig;
+        const details: string[] = [];
+        
+        // Roaster model (show loading if not loaded, will be updated async)
+        if (config.roasterModelId) {
+          details.push(`<div class="layer-detail-item" title="Roaster Model"><span class="detail-label">Roaster:</span> <span class="detail-value" id="roaster-model-${layer.id}">Loading...</span></div>`);
+        } else {
+          details.push(`<div class="layer-detail-item" title="Roaster Model"><span class="detail-label">Roaster:</span> <span class="detail-value">Not selected</span></div>`);
+        }
+        
+        // Bean model
+        if (config.beanModelId) {
+          details.push(`<div class="layer-detail-item" title="Bean Model"><span class="detail-label">Bean:</span> <span class="detail-value" id="bean-model-${layer.id}">Loading...</span></div>`);
+        } else {
+          details.push(`<div class="layer-detail-item" title="Bean Model"><span class="detail-label">Bean:</span> <span class="detail-value">Not selected</span></div>`);
+        }
+        
+        // Bean mass
+        details.push(`<div class="layer-detail-item" title="Bean Mass"><span class="detail-label">Mass:</span> <span class="detail-value">${config.beanMassG}g</span></div>`);
+        
+        // Trigger async load of model names
+        if (config.roasterModelId || config.beanModelId) {
+          this.loadModelNamesAsync(layer.id, config.roasterModelId, config.beanModelId);
+        }
+        
+        return details.join('');
+      }
+      
+      case 'recipe': {
+        const config = layer as RecipeLayerConfig;
+        const details: string[] = [];
+        
+        if (config.recipeId) {
+          // Recipe details (will be loaded async)
+          details.push(`<div class="layer-detail-item" title="Recipe Name"><span class="detail-label">Recipe:</span> <span class="detail-value" id="recipe-name-${layer.id}">Loading...</span></div>`);
+          details.push(`<div class="layer-detail-item" title="Roaster Model"><span class="detail-label">Roaster:</span> <span class="detail-value" id="recipe-roaster-${layer.id}">Loading...</span></div>`);
+          details.push(`<div class="layer-detail-item" title="Bean Model"><span class="detail-label">Bean:</span> <span class="detail-value" id="recipe-bean-${layer.id}">Loading...</span></div>`);
+          details.push(`<div class="layer-detail-item" title="Bean Mass"><span class="detail-label">Mass:</span> <span class="detail-value" id="recipe-mass-${layer.id}">Loading...</span></div>`);
+          
+          // Trigger async load
+          this.loadRecipeDetailsAsync(layer.id, config.recipeId);
+        } else {
+          details.push(`<div class="layer-detail-item"><span class="detail-value">No recipe selected</span></div>`);
+        }
+        
+        return details.join('');
+      }
+      
+      case 'historical': {
+        const config = layer as HistoricalLayerConfig;
+        const details: string[] = [];
+        
+        if (config.roastIds.length > 0) {
+          // Roast details (will be loaded async)
+          details.push(`<div class="layer-detail-item" title="Roaster"><span class="detail-label">Roaster:</span> <span class="detail-value" id="hist-roaster-${layer.id}">Loading...</span></div>`);
+          details.push(`<div class="layer-detail-item" title="Bean Origin & Variety"><span class="detail-label">Bean:</span> <span class="detail-value" id="hist-bean-${layer.id}">Loading...</span></div>`);
+          details.push(`<div class="layer-detail-item" title="Bean Mass"><span class="detail-label">Mass:</span> <span class="detail-value" id="hist-mass-${layer.id}">Loading...</span></div>`);
+          
+          // Trigger async load
+          this.loadHistoricalDetailsAsync(layer.id, config.roastIds[0]);
+        } else {
+          details.push(`<div class="layer-detail-item"><span class="detail-value">No roast selected</span></div>`);
+        }
+        
+        return details.join('');
+      }
+    }
+  }
+  
+  /**
+   * Load model names asynchronously and update the UI
+   * @param layerId - Layer ID
+   * @param roasterModelId - Roaster model ID
+   * @param beanModelId - Bean model ID
+   */
+  private async loadModelNamesAsync(layerId: string, roasterModelId: string, beanModelId: string): Promise<void> {
+    try {
+      // Load roaster model name
+      if (roasterModelId) {
+        const { data: roasterData, error: roasterError } = await supabase
+          .from('training_jobs')
+          .select('job_name')
+          .eq('id', roasterModelId)
+          .single();
+        
+        if (!roasterError && roasterData) {
+          const roasterEl = document.getElementById(`roaster-model-${layerId}`);
+          if (roasterEl) {
+            roasterEl.textContent = roasterData.job_name || 'Unnamed';
+          }
+        }
+      }
+      
+      // Load bean model name
+      if (beanModelId) {
+        const { data: beanData, error: beanError } = await supabase
+          .from('training_jobs')
+          .select('job_name')
+          .eq('id', beanModelId)
+          .single();
+        
+        if (!beanError && beanData) {
+          const beanEl = document.getElementById(`bean-model-${layerId}`);
+          if (beanEl) {
+            beanEl.textContent = beanData.job_name || 'Unnamed';
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading model names:', error);
+    }
+  }
+  
+  /**
+   * Load recipe details asynchronously and update the UI
+   * @param layerId - Layer ID
+   * @param recipeId - Recipe ID
+   */
+  private async loadRecipeDetailsAsync(layerId: string, recipeId: string): Promise<void> {
+    try {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(`
+          name,
+          bean_mass_g,
+          roaster_model:training_jobs!recipes_roaster_model_id_fkey(job_name),
+          bean_model:training_jobs!recipes_bean_model_id_fkey(job_name)
+        `)
+        .eq('id', recipeId)
+        .single();
+      
+      if (!error && data) {
+        // Update recipe name
+        const recipeNameEl = document.getElementById(`recipe-name-${layerId}`);
+        if (recipeNameEl) {
+          recipeNameEl.textContent = data.name || 'Unnamed';
+        }
+        
+        // Update roaster model
+        const roasterEl = document.getElementById(`recipe-roaster-${layerId}`);
+        if (roasterEl) {
+          roasterEl.textContent = (data.roaster_model as any)?.job_name || 'Unknown';
+        }
+        
+        // Update bean model
+        const beanEl = document.getElementById(`recipe-bean-${layerId}`);
+        if (beanEl) {
+          beanEl.textContent = (data.bean_model as any)?.job_name || 'Unknown';
+        }
+        
+        // Update mass
+        const massEl = document.getElementById(`recipe-mass-${layerId}`);
+        if (massEl) {
+          massEl.textContent = `${data.bean_mass_g}g`;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading recipe details:', error);
+    }
+  }
+  
+  /**
+   * Load historical roast details asynchronously and update the UI
+   * @param layerId - Layer ID
+   * @param roastId - Roast ID
+   */
+  private async loadHistoricalDetailsAsync(layerId: string, roastId: string): Promise<void> {
+    try {
+      const { data, error } = await supabase
+        .from('roasts')
+        .select('roaster, origin, variety, charge_mass')
+        .eq('id', roastId)
+        .single();
+      
+      if (!error && data) {
+        // Update roaster
+        const roasterEl = document.getElementById(`hist-roaster-${layerId}`);
+        if (roasterEl) {
+          roasterEl.textContent = data.roaster || 'Unknown';
+        }
+        
+        // Update bean info (origin and variety)
+        const beanEl = document.getElementById(`hist-bean-${layerId}`);
+        if (beanEl) {
+          const origin = data.origin || 'Unknown';
+          const variety = data.variety || 'Unknown';
+          beanEl.textContent = `${origin} ${variety}`;
+        }
+        
+        // Update mass
+        const massEl = document.getElementById(`hist-mass-${layerId}`);
+        if (massEl) {
+          massEl.textContent = data.charge_mass ? `${data.charge_mass}g` : 'N/A';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading historical roast details:', error);
+    }
   }
   
   /**
@@ -645,8 +883,9 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // When config changes, update layer list, chart and save state
-          this.updateLayerList();
+          // When config changes, update only this layer's card, chart and save state
+          // This prevents all layer cards from showing "Loading..." when one changes
+          this.updateSingleLayerCard(layerId);
           this.updateChart();
           this.saveCanvasState();
         }
@@ -668,8 +907,9 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // When config changes, update layer list, chart and save state
-          this.updateLayerList();
+          // When config changes, update only this layer's card, chart and save state
+          // This prevents all layer cards from showing "Loading..." when one changes
+          this.updateSingleLayerCard(layerId);
           this.updateChart();
           this.saveCanvasState();
         }
@@ -691,8 +931,9 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // When config changes, update layer list, chart and save state
-          this.updateLayerList();
+          // When config changes, update only this layer's card, chart and save state
+          // This prevents all layer cards from showing "Loading..." when one changes
+          this.updateSingleLayerCard(layerId);
           this.updateChart();
           this.saveCanvasState();
         }
@@ -716,8 +957,9 @@ export class CanvasManager {
         this.user,
         config,
         () => {
-          // Full update: When config changes, update layer list, chart and save state
-          this.updateLayerList();
+          // Full update: When config changes, update only this layer's card, chart and save state
+          // This prevents all layer cards from showing "Loading..." when one changes
+          this.updateSingleLayerCard(layerId);
           this.updateChart();
           this.saveCanvasState();
         },

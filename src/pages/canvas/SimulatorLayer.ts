@@ -1434,7 +1434,8 @@ export class SimulatorLayer {
         pointRadius: 0,
         lineDash: [],
         fill: false,
-        fillOpacity: 0
+        fillOpacity: 0,
+        stepped: 'before'  // Piecewise constant (step function)
       },
       yAxisID: 'y'
     });
@@ -1453,7 +1454,8 @@ export class SimulatorLayer {
         pointRadius: 0,
         lineDash: [],
         fill: false,
-        fillOpacity: 0
+        fillOpacity: 0,
+        stepped: 'before'  // Piecewise constant (step function)
       },
       yAxisID: 'y'
     });
@@ -1472,7 +1474,8 @@ export class SimulatorLayer {
         pointRadius: 0,
         lineDash: [],
         fill: false,
-        fillOpacity: 0
+        fillOpacity: 0,
+        stepped: 'before'  // Piecewise constant (step function)
       },
       yAxisID: 'y'
     });

@@ -554,8 +554,36 @@ body {
 
 .layer-info {
     font-size: 11px;
-    color: #999;
+    color: #666;
     padding-left: 34px;
+    line-height: 1.4;
+}
+
+/* Layer detail items */
+.layer-detail-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+    gap: 6px;
+}
+
+.layer-detail-item:last-child {
+    margin-bottom: 0;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: #666;
+    font-size: 11px;
+}
+
+.detail-value {
+    color: #333;
+    font-size: 11px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .layer-type-selector {

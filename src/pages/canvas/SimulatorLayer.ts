@@ -159,7 +159,7 @@ export class SimulatorLayer {
     // Build the UI with all sections
     contentDiv.innerHTML = `
       <!-- Layer Settings Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Layer Settings</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -186,7 +186,7 @@ export class SimulatorLayer {
       </div>
       
       <!-- Model Selection Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Model Selection</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -209,7 +209,7 @@ export class SimulatorLayer {
       </div>
       
       <!-- Parameters Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Roast Parameters</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -248,7 +248,7 @@ export class SimulatorLayer {
       </div>
       
       <!-- Simulation Speed Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Simulation Speed</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -269,7 +269,7 @@ export class SimulatorLayer {
       </div>
       
       <!-- Manual Controls Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Manual Controls</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -308,7 +308,7 @@ export class SimulatorLayer {
       </div>
       
       <!-- Simulation Control Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Simulation Control</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>

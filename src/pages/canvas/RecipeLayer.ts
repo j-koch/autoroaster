@@ -96,7 +96,7 @@ export class RecipeLayer {
    */
   private renderPropertiesUI(container: HTMLElement): void {
     container.innerHTML = `
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Layer Settings</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -155,7 +155,7 @@ export class RecipeLayer {
         </div>
       </div>
       
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Filters</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -185,7 +185,7 @@ export class RecipeLayer {
         </div>
       </div>
       
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Select Recipe</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>

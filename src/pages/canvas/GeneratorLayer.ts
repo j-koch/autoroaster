@@ -172,7 +172,7 @@ export class GeneratorLayer {
     // Build the UI with all sections
     contentDiv.innerHTML = `
       <!-- Color picker section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Layer Settings</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -199,7 +199,7 @@ export class GeneratorLayer {
       </div>
       
       <!-- Model Selection Tables -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Model Selection</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -223,7 +223,7 @@ export class GeneratorLayer {
       </div>
       
       <!-- Control Profile Editor Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Control Profile Editor</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -263,7 +263,7 @@ export class GeneratorLayer {
       </div>
       
       <!-- Parameters Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Parameters</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>
@@ -310,7 +310,7 @@ export class GeneratorLayer {
       </div>
       
       <!-- Recipe Info Section -->
-      <div class="property-section">
+      <div class="property-section collapsed">
         <div class="property-section-header">
           <h3>Recipe Info</h3>
           <button class="property-section-toggle" title="Collapse/Expand">▼</button>

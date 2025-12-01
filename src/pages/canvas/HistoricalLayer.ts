@@ -634,13 +634,11 @@ export class HistoricalLayer {
         });
       }
       
-      // Rate of rise trace (plotted on right-hand y-axis, only positive values)
+      // Rate of rise trace (plotted on right-hand y-axis)
+      // Plot all RoR values including negative ones; the y-axis min is set to 0 in the chart configuration
       if (this.config.showRoR) {
-        // Filter to only include positive RoR values
-        // RoR data structure: map time to RoR, filtering out negative values
-        const rorData = timeSeconds
-          .map((t, i) => ({ x: t, y: ror[i] }))
-          .filter(point => point.y >= 0); // Only positive RoR values
+        // Map time to RoR values - plot all data points
+        const rorData = timeSeconds.map((t, i) => ({ x: t, y: ror[i] }));
         
         series.push({
           label: `RoR - ${roast.origin || 'Unknown'} ${layerSuffix}`,

@@ -562,14 +562,14 @@ export class RecipeLayer {
         });
       }
       
-      // Rate of rise trace (plotted on right-hand y-axis, only positive values)
+      // Rate of rise trace (plotted on right-hand y-axis)
+      // Plot all RoR values including negative ones; the y-axis min is set to 0 in the chart configuration
       if (this.config.showRoR && ror.length > 0) {
-        // RoR data structure: map time to RoR, filtering out negative values
+        // Map time to RoR values - plot all data points
         // Note: RoR array is one element shorter than time array (starts at index 1)
         const rorData = timeSeconds
           .slice(1) // Skip first time point since RoR starts at index 1
-          .map((t, i) => ({ x: t, y: ror[i] }))
-          .filter(point => point.y >= 0); // Only positive RoR values
+          .map((t, i) => ({ x: t, y: ror[i] }));
         
         series.push({
           label: `RoR - ${recipe.name} ${layerSuffix}`,

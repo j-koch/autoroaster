@@ -178,9 +178,10 @@ export class CanvasManager {
             grid: {
               drawOnChartArea: false
             },
-            // Constrain RoR axis to 0-30°C/min range unless data exceeds these limits
-            // Using suggestedMin/Max allows the chart to expand if needed
-            suggestedMin: 0,
+            // Enforce RoR axis minimum at 0 (hard constraint)
+            // This ensures the y-axis doesn't go below zero, even if data contains negative values
+            // Using min (hard constraint) for the lower bound, suggestedMax for upper bound flexibility
+            min: 0,
             suggestedMax: 30
           }
         },

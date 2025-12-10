@@ -829,6 +829,13 @@ body {
     
     .hero-section {
         padding: 120px 20px 60px;
+        min-height: auto;
+    }
+    
+    /* Stack hero content vertically on mobile */
+    .hero-content {
+        grid-template-columns: 1fr;
+        gap: 40px;
     }
     
     .hero-title {
@@ -857,8 +864,35 @@ body {
         height: 300px;
     }
     
+    /* Make demo visualization responsive on mobile */
     .demo-visualization {
-        min-height: 340px;
+        min-height: 500px;
+        padding: 15px;
+    }
+    
+    /* Adjust chart heights for mobile */
+    #demo-temp-chart {
+        height: 280px !important;
+    }
+    
+    #demo-control-chart {
+        height: 140px !important;
+        margin-bottom: 100px;
+    }
+    
+    /* Make demo controls more compact on mobile */
+    .demo-controls {
+        padding: 12px 15px;
+        gap: 20px;
+        flex-direction: column;
+    }
+    
+    .demo-control-group {
+        gap: 6px;
+    }
+    
+    .demo-control-group label {
+        font-size: 13px;
     }
     
     .features-section,
